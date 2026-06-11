@@ -1,0 +1,132 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
+import { fetchOrders, updateOrderStatus, type AdminOrder } from "@/lib/admin";
+import { StatusPill } from "./admin.index";
+
+export const Route = createFileRoute("/admin/orders")({
+  component: AdminOrders,
+});
+
+const ORDER_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
+
+function AdminOrders() {
+  const [orders, setOrders]   = useState<AdminOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [q, setQ]             = useState("");
+  const [opened, setOpened]   = useState<AdminOrder | null>(null);
+
+  useEffect(() => { void load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    try { setOrders(await fetchOrders()); }
+    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
+  }
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return orders;
+    return orders.filter((o) =>
+      o.email.toLowerCase().includes(s) || o.order_number.toLowerCase().includes(s)
+    );
+  }, [q, orders]);
+
+  async function changeStatus(id: string, order_status: string) {
+    try {
+      const updated = await updateOrderStatus(id, order_status);
+      setOrders((prev) => prev.map((o) => (o.id === id ? updated : o)));
+      if (opened?.id === id) setOpened(updated);
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+  }
+
+  const fmt = (n: number) => `₦${Number(n).toLocaleString("en-NG")}`;
+
+  return (
+    <div className="space-y-6">
+      <header className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <p className="text-eyebrow">Manage</p>
+          <h1 className="font-display text-3xl md:text-4xl mt-1">Orders</h1>
+        </div>
+        <div className="relative">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search email or order #"
+            className="pl-9 pr-3 py-2 border border-border bg-background text-sm w-72 outline-none focus:border-gold"
+          />
+        </div>
+      </header>
+
+      {error && <p className="text-sm text-destructive bg-destructive/10 p-3">{error}</p>}
+
+      <div className="bg-background border border-border overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary/50 text-left">
+            <tr>
+              {["Order #", "Customer", "Total", "Order Status", "Payment", "Date", ""].map((h) => (
+                <th key={h} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading…</td></tr>}
+            {!loading && !filtered.length && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No orders found.</td></tr>}
+            {filtered.map((o) => (
+              <tr key={o.id} className="border-t border-border hover:bg-secondary/20">
+                <td className="p-3 font-mono text-xs">{o.order_number}</td>
+                <td className="p-3">
+                  <p className="text-xs">{o.first_name} {o.last_name}</p>
+                  <p className="text-xs text-muted-foreground">{o.email}</p>
+                </td>
+                <td className="p-3 tabular-nums text-xs">{fmt(o.total)}</td>
+                <td className="p-3"><StatusPill status={o.order_status} /></td>
+                <td className="p-3"><StatusPill status={o.payment_status} /></td>
+                <td className="p-3 text-muted-foreground text-xs">{new Date(o.created_at).toLocaleDateString()}</td>
+                <td className="p-3 text-right">
+                  <button onClick={() => setOpened(o)} className="text-xs text-gold-deep hover:underline">View</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {opened && (
+        <div className="fixed inset-0 z-50 flex" onClick={() => setOpened(null)}>
+          <div className="absolute inset-0 bg-onyx/60" />
+          <aside className="ml-auto relative h-full w-full sm:w-[480px] bg-background overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-border">
+              <p className="text-eyebrow">Order Details</p>
+              <h2 className="font-display text-2xl mt-1">{opened.order_number}</h2>
+              <p className="text-xs text-muted-foreground mt-1">{new Date(opened.created_at).toLocaleString()}</p>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><p className="text-eyebrow mb-1">Customer</p><p>{opened.first_name} {opened.last_name}</p><p className="text-xs text-muted-foreground">{opened.email}</p></div>
+                <div><p className="text-eyebrow mb-1">Phone</p><p>{opened.phone}</p></div>
+                <div><p className="text-eyebrow mb-1">Total</p><p className="font-display text-xl">{fmt(opened.total)}</p></div>
+                <div><p className="text-eyebrow mb-1">Payment</p><StatusPill status={opened.payment_status} /></div>
+              </div>
+              <div>
+                <p className="text-eyebrow mb-2">Update Order Status</p>
+                <select
+                  value={opened.order_status}
+                  onChange={(e) => changeStatus(opened.id, e.target.value)}
+                  className="border border-border px-3 py-2 text-sm bg-background w-full"
+                >
+                  {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <button onClick={() => setOpened(null)} className="w-full border border-border py-3 text-xs tracking-[0.25em] uppercase hover:border-gold">Close</button>
+            </div>
+          </aside>
+        </div>
+      )}
+    </div>
+  );
+}

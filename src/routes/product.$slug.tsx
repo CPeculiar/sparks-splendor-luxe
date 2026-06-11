@@ -1,0 +1,267 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { Heart, Minus, Plus, Ruler, Shield, Star, Truck, ChevronRight, X } from "lucide-react";
+import { useProduct } from "@/lib/db-products";
+import { getRelated } from "@/lib/products";
+import { ProductCard } from "@/components/ProductCard";
+import { useCart } from "@/lib/cart";
+import { useCurrency } from "@/lib/currency";
+
+export const Route = createFileRoute("/product/$slug")({
+  component: ProductPage,
+});
+
+function ProductPage() {
+  const { slug } = Route.useParams();
+  const { product, loading } = useProduct(slug);
+  const { add } = useCart();
+  const { format } = useCurrency();
+  const [size, setSize] = useState<string>("");
+  const [color, setColor] = useState<string>("");
+  const [qty, setQty] = useState(1);
+  const [activeImg, setActiveImg] = useState(0);
+  const [zoom, setZoom] = useState(false);
+  const [guide, setGuide] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="container-luxe py-20 grid lg:grid-cols-2 gap-10">
+        <div className="aspect-[4/5] bg-muted animate-pulse" />
+        <div className="space-y-4 py-4">
+          <div className="h-4 bg-muted animate-pulse w-24" />
+          <div className="h-10 bg-muted animate-pulse w-3/4" />
+          <div className="h-6 bg-muted animate-pulse w-32" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-eyebrow">Not Found</p>
+          <h1 className="font-display text-5xl mt-3">Piece unavailable</h1>
+          <Link to="/shop" className="inline-block mt-6 underline text-gold-deep">Return to boutique</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const currentSize = size || product.sizes[1] || product.sizes[0] || "";
+  const currentColor = color || product.colors[0] || "";
+  const related = getRelated(product, 4);
+
+  return (
+    <>
+      <div className="container-luxe pt-6 text-xs tracking-[0.18em] uppercase text-muted-foreground flex items-center gap-2">
+        <Link to="/" className="hover:text-foreground">Home</Link> <ChevronRight className="h-3 w-3" />
+        <Link to="/shop" className="hover:text-foreground">Shop</Link> <ChevronRight className="h-3 w-3" />
+        <Link to="/shop" search={{ category: product.category }} className="hover:text-foreground capitalize">{product.category}</Link>
+      </div>
+
+      <div className="container-luxe py-8 md:py-14 grid lg:grid-cols-2 gap-10 lg:gap-16">
+        {/* gallery */}
+        <div className="grid grid-cols-[64px_1fr] md:grid-cols-[80px_1fr] gap-3 md:gap-4">
+          <div className="hidden md:flex flex-col gap-3">
+            {product.gallery.map((g, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveImg(i)}
+                className={[
+                  "aspect-[4/5] overflow-hidden border-2 transition-all",
+                  activeImg === i ? "border-gold" : "border-transparent hover:border-border",
+                ].join(" ")}
+              >
+                <img src={g} alt="" className="w-full h-full object-cover object-top" />
+              </button>
+            ))}
+          </div>
+          <div className="md:col-start-2">
+            <button onClick={() => setZoom(true)} className="block w-full aspect-[4/5] overflow-hidden bg-muted relative group cursor-zoom-in">
+              <img src={product.gallery[activeImg] || product.image} alt={product.name} className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105" />
+              {product.badge && (
+                <span className="absolute top-4 left-4 bg-onyx text-cream text-[10px] tracking-[0.25em] uppercase px-3 py-1.5">
+                  {product.badge}
+                </span>
+              )}
+            </button>
+            <div className="flex md:hidden gap-2 mt-3">
+              {product.gallery.map((g, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImg(i)}
+                  className={["flex-1 aspect-[4/5] overflow-hidden border-2", activeImg === i ? "border-gold" : "border-transparent"].join(" ")}
+                >
+                  <img src={g} alt="" className="w-full h-full object-cover object-top" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* details */}
+        <div className="lg:py-4 lg:sticky lg:top-28 self-start">
+          <p className="text-eyebrow">{product.category}</p>
+          <h1 className="font-display text-4xl md:text-5xl mt-3 leading-tight">{product.name}</h1>
+          <div className="flex items-center gap-2 mt-3">
+            <div className="flex text-gold">
+              {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-current" />)}
+            </div>
+            <span className="text-xs text-muted-foreground">(48 reviews)</span>
+          </div>
+
+          <p className="text-2xl font-display mt-5 tabular-nums">{format(product.price)}</p>
+          <p className="text-xs text-muted-foreground mt-1">Tax included. Bespoke fittings complimentary.</p>
+
+          <p className="mt-6 text-muted-foreground leading-relaxed">{product.description}</p>
+
+          {product.colors.length > 0 && (
+            <div className="mt-7">
+              <p className="text-eyebrow mb-3">Colour: <span className="text-foreground normal-case tracking-normal font-normal">{currentColor}</span></p>
+              <div className="flex flex-wrap gap-2">
+                {product.colors.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setColor(c)}
+                    className={[
+                      "px-4 h-10 border text-sm transition-colors",
+                      currentColor === c ? "border-onyx bg-onyx text-cream" : "border-border hover:border-gold",
+                    ].join(" ")}
+                  >{c}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {product.sizes.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-eyebrow">Size: <span className="text-foreground normal-case tracking-normal font-normal">{currentSize}</span></p>
+                <button onClick={() => setGuide(true)} className="text-xs underline text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5">
+                  <Ruler className="h-3.5 w-3.5" /> Size guide
+                </button>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {product.sizes.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSize(s)}
+                    className={[
+                      "h-12 border text-sm transition-colors",
+                      currentSize === s ? "bg-onyx text-cream border-onyx" : "border-border hover:border-gold",
+                    ].join(" ")}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-stretch gap-3">
+            <div className="flex items-center border border-border">
+              <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 h-12 hover:bg-muted" aria-label="Decrease"><Minus className="h-4 w-4" /></button>
+              <span className="px-4 text-sm tabular-nums w-10 text-center">{qty}</span>
+              <button onClick={() => setQty(qty + 1)} className="px-3 h-12 hover:bg-muted" aria-label="Increase"><Plus className="h-4 w-4" /></button>
+            </div>
+            <button
+              onClick={() => add(product, { size: currentSize, color: currentColor, quantity: qty })}
+              className="flex-1 bg-onyx text-cream h-12 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
+            >
+              Add to Bag
+            </button>
+            <button className="h-12 w-12 border border-border flex items-center justify-center hover:border-gold hover:text-gold transition-colors" aria-label="Wishlist">
+              <Heart className="h-4 w-4" />
+            </button>
+          </div>
+
+          <Link to="/contact" className="block w-full text-center border border-onyx h-12 leading-[3rem] mt-3 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors">
+            Book Bespoke Consultation
+          </Link>
+
+          <div className="mt-8 grid grid-cols-3 gap-4 text-center border-t border-border pt-6">
+            {[
+              { I: Truck, t: "Free Shipping", s: "On orders over ₦500k" },
+              { I: Shield, t: "Lifetime Care", s: "Free alterations" },
+              { I: Ruler, t: "Bespoke Fit", s: "By appointment" },
+            ].map((it) => (
+              <div key={it.t}>
+                <it.I className="h-5 w-5 text-gold mx-auto" />
+                <p className="text-[11px] tracking-[0.18em] uppercase mt-2 font-medium">{it.t}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">{it.s}</p>
+              </div>
+            ))}
+          </div>
+
+          {product.fabric && (
+            <details className="border-b border-border py-5 mt-8 group">
+              <summary className="cursor-pointer flex justify-between text-sm font-medium tracking-[0.15em] uppercase">
+                Materials & Composition <Plus className="h-4 w-4 group-open:rotate-45 transition-transform" />
+              </summary>
+              <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{product.fabric}. Each piece is hand-finished by our master tailors in Lagos. Dry clean only.</p>
+            </details>
+          )}
+          <details className="border-b border-border py-5 group">
+            <summary className="cursor-pointer flex justify-between text-sm font-medium tracking-[0.15em] uppercase">
+              Shipping & Returns <Plus className="h-4 w-4 group-open:rotate-45 transition-transform" />
+            </summary>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">Complimentary worldwide shipping on orders above ₦500,000. Returns accepted within 14 days for unworn pieces.</p>
+          </details>
+        </div>
+      </div>
+
+      {/* related */}
+      {related.length > 0 && (
+        <section className="container-luxe pb-20">
+          <div className="text-center mb-10">
+            <p className="text-eyebrow">You May Also Love</p>
+            <h2 className="font-display text-3xl md:text-4xl mt-3">Coordinated Selections</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-10">
+            {related.map((r) => <ProductCard key={r.id} product={r} />)}
+          </div>
+        </section>
+      )}
+
+      {zoom && (
+        <div className="fixed inset-0 z-50 bg-onyx/95 flex items-center justify-center p-4 animate-fade-in">
+          <button onClick={() => setZoom(false)} className="absolute top-6 right-6 text-cream hover:text-gold" aria-label="Close zoom">
+            <X className="h-8 w-8" />
+          </button>
+          <img src={product.gallery[activeImg] || product.image} alt={product.name} className="max-h-[90vh] max-w-full object-contain" />
+        </div>
+      )}
+
+      {guide && (
+        <div className="fixed inset-0 z-50 bg-onyx/70 flex items-center justify-center p-4 animate-fade-in" onClick={() => setGuide(false)}>
+          <div className="bg-background max-w-lg w-full p-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="font-display text-2xl">Size Guide</h3>
+              <button onClick={() => setGuide(false)}><X className="h-5 w-5" /></button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">Measurements in inches. For bespoke commissions, we measure in person.</p>
+            <table className="w-full text-sm">
+              <thead className="border-b border-border">
+                <tr className="text-left text-xs tracking-[0.2em] uppercase text-muted-foreground">
+                  <th className="py-2">Size</th><th>Chest</th><th>Waist</th><th>Hip</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ["S", "36", "30", "37"],
+                  ["M", "39", "33", "40"],
+                  ["L", "42", "36", "43"],
+                  ["XL", "45", "39", "46"],
+                  ["XXL", "48", "42", "49"],
+                ].map((r) => (
+                  <tr key={r[0]} className="border-b border-border/60">
+                    {r.map((c, i) => <td key={i} className="py-3 tabular-nums">{c}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
