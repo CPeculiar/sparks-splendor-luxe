@@ -1,12 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
-import { categories as staticCategories, type Category } from "@/lib/products";
 import { useProducts, useCategories } from "@/lib/db-products";
+import type { Category } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
+
+const SUIT_SUBS = [
+  { key: "all",      label: "All Suits" },
+  { key: "safari",   label: "Safari" },
+  { key: "wedding",  label: "Wedding" },
+  { key: "business", label: "Business" },
+  { key: "dinner",   label: "Dinner" },
+  { key: "prom",     label: "Prom" },
+];
+
+const SHOP_CATS = [
+  { key: "suits",   label: "Suits" },
+  { key: "natives", label: "Natives" },
+  { key: "kaftan",  label: "Kaftan" },
+  { key: "agbada",  label: "Agbada" },
+  { key: "shirts",  label: "Shirts" },
+  { key: "pants",   label: "Pants" },
+  { key: "casuals", label: "Casuals" },
+  { key: "ladies",  label: "Ladies" },
+];
+
+const ROWS_PER_LOAD = 3;
+const COLS = 4;
 
 interface ShopSearch {
   category?: string;
+  sub?: string;
   sort?: "featured" | "price-asc" | "price-desc" | "newest";
   size?: string;
 }
@@ -14,6 +38,7 @@ interface ShopSearch {
 export const Route = createFileRoute("/shop")({
   validateSearch: (s: Record<string, unknown>): ShopSearch => ({
     category: (s.category as string) ?? "all",
+    sub: typeof s.sub === "string" ? s.sub : undefined,
     sort: (s.sort as ShopSearch["sort"]) ?? "featured",
     size: typeof s.size === "string" ? s.size : undefined,
   }),
@@ -25,38 +50,53 @@ function ShopPage() {
   const navigate = Route.useNavigate();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [maxPrice, setMaxPrice] = useState<number>(800000);
+  const [visibleRows, setVisibleRows] = useState(ROWS_PER_LOAD);
+
+  const isSuits = search.category === "suits";
+  const activeSub = search.sub ?? "all";
 
   const categoryFilter = search.category && search.category !== "all" ? search.category : undefined;
   const { products, loading } = useProducts({ category: categoryFilter });
   const { categories: backendCats } = useCategories();
 
-  // Use backend categories if available, fall back to static
-  const categories = backendCats.length
-    ? backendCats.map((c) => ({
-        key: c.slug as Category,
-        label: c.name,
-        tagline: c.description || "",
-        image: c.image_url || "",
-      }))
-    : staticCategories;
+  // Reset rows on category or sub change
+  useEffect(() => { setVisibleRows(ROWS_PER_LOAD); }, [search.category, search.sub]);
 
-  const cat = categories.find((c) => c.key === search.category);
-  const heroImage = cat?.image || "/gallery/img-46.jpg";
+  const allShopCats = backendCats.length
+    ? backendCats.map((c) => ({ key: c.slug as Category, label: c.name, tagline: c.description || "", image: c.image_url || "" }))
+    : SHOP_CATS.map((c) => ({ ...c, tagline: "", image: "/gallery/img-46.jpg" }));
+
+  const cat = SHOP_CATS.find((c) => c.key === search.category) || allShopCats.find((c) => c.key === search.category);
+  const heroImage = allShopCats.find((c) => c.key === search.category)?.image || "/gallery/img-46.jpg";
   const heading = cat ? cat.label : "The Boutique";
-  const tagline = cat ? cat.tagline : "Bespoke pieces, hand-finished in our atelier.";
+  const tagline = allShopCats.find((c) => c.key === search.category)?.tagline || "Bespoke pieces, hand-finished in our atelier.";
 
   const filtered = useMemo(() => {
     let list = [...products];
+    // Sub-category filter for suits
+    if (isSuits && activeSub !== "all") {
+      // Filter by sub_category field if present, otherwise distribute by index
+      const hasSubField = list.some((p: any) => p.sub_category);
+      if (hasSubField) {
+        list = list.filter((p: any) => p.sub_category === activeSub);
+      } else {
+        const subIdx = SUIT_SUBS.findIndex((s) => s.key === activeSub) - 1; // -1 because index 0 is "all"
+        list = list.filter((_, i) => i % (SUIT_SUBS.length - 1) === subIdx);
+      }
+    }
     if (search.size) list = list.filter((p) => p.sizes.includes(search.size!));
     list = list.filter((p) => p.price <= maxPrice);
-
     switch (search.sort) {
       case "price-asc": list.sort((a, b) => a.price - b.price); break;
       case "price-desc": list.sort((a, b) => b.price - a.price); break;
       case "newest": list.sort((a, b) => (b.badge === "New" ? 1 : 0) - (a.badge === "New" ? 1 : 0)); break;
     }
     return list;
-  }, [products, search.sort, search.size, maxPrice]);
+  }, [products, search.sort, search.size, maxPrice, isSuits, activeSub]);
+
+  const maxVisible = visibleRows * COLS;
+  const visible = isSuits ? filtered.slice(0, maxVisible) : filtered;
+  const hasMore = isSuits && filtered.length > maxVisible;
 
   return (
     <>
@@ -71,17 +111,35 @@ function ShopPage() {
         </div>
       </section>
 
-      {/* category strip */}
+      {/* main category strip */}
       <div className="border-b border-border bg-background sticky top-16 md:top-20 z-30">
         <div className="container-luxe overflow-x-auto">
           <div className="flex items-center justify-center gap-1 md:gap-2 py-3 min-w-max">
-            <CatPill label="All" active={!search.category || search.category === "all"} onClick={() => navigate({ search: { ...search, category: "all" } })} />
-            {categories.map((c) => (
-              <CatPill key={c.key} label={c.label} active={search.category === c.key} onClick={() => navigate({ search: { ...search, category: c.key } })} />
+            <CatPill label="All" active={!search.category || search.category === "all"} onClick={() => navigate({ search: { ...search, category: "all", sub: undefined } })} />
+            {SHOP_CATS.map((c) => (
+              <CatPill key={c.key} label={c.label} active={search.category === c.key} onClick={() => navigate({ search: { ...search, category: c.key, sub: undefined } })} />
             ))}
           </div>
         </div>
       </div>
+
+      {/* suits sub-category strip */}
+      {isSuits && (
+        <div className="border-b border-border/60 bg-secondary/20">
+          <div className="container-luxe overflow-x-auto">
+            <div className="flex items-center justify-center gap-1 md:gap-2 py-2.5 min-w-max">
+              {SUIT_SUBS.map((s) => (
+                <CatPill
+                  key={s.key}
+                  label={s.label}
+                  active={activeSub === s.key}
+                  onClick={() => navigate({ search: { ...search, sub: s.key === "all" ? undefined : s.key } })}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="container-luxe py-10 md:py-14">
         {/* toolbar */}
@@ -115,7 +173,7 @@ function ShopPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-12">
-            {filtered.map((p) => <ProductCard key={p.id} product={p} />)}
+            {visible.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         )}
 
@@ -123,6 +181,17 @@ function ShopPage() {
           <div className="text-center py-24">
             <p className="font-display text-2xl">No pieces match these filters.</p>
             <button onClick={() => { navigate({ search: { category: "all", sort: "featured" } }); setMaxPrice(800000); }} className="mt-4 text-gold-deep underline text-sm">Clear filters</button>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="mt-12 text-center">
+            <button
+              onClick={() => setVisibleRows((r) => r + ROWS_PER_LOAD)}
+              className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
+            >
+              Load More
+            </button>
           </div>
         )}
       </section>
@@ -140,7 +209,7 @@ function ShopPage() {
               <div>
                 <h4 className="text-eyebrow mb-4">Category</h4>
                 <div className="space-y-2">
-                  {[{ key: "all", label: "All" }, ...categories].map((c) => (
+                  {[{ key: "all", label: "All" }, ...SHOP_CATS].map((c) => (
                     <button
                       key={c.key}
                       onClick={() => navigate({ search: { ...search, category: c.key } })}

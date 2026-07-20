@@ -1,10 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowRight, Star, Award, Scissors, Truck } from "lucide-react";
-import { categories as staticCategories } from "@/lib/products";
-import { useProducts, useCategories } from "@/lib/db-products";
+import { useProducts } from "@/lib/db-products";
 import { ProductCard } from "@/components/ProductCard";
-import { useFeaturedLaunch } from "@/lib/featuredLaunch";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -13,7 +11,6 @@ export const Route = createFileRoute("/")({
 interface Slide {
   type: "video" | "image";
   src: string;
-  poster?: string;
   eyebrow: string;
   title: string;
   subtitle: string;
@@ -81,22 +78,32 @@ function HeroCarousel() {
     if (timer.current) clearTimeout(timer.current);
     const cur = SLIDES[i];
     if (cur.type === "video") {
-      // Wait for video end OR fallback 12s
       const v = videoRef.current;
       const onEnd = () => advance();
       v?.addEventListener("ended", onEnd);
+      // fallback: if video doesn't end naturally within 14s, advance anyway
       timer.current = setTimeout(advance, 14000);
       return () => {
         v?.removeEventListener("ended", onEnd);
         if (timer.current) clearTimeout(timer.current);
       };
     }
+    // images: auto-advance every 6.5s, then loop back to start
     timer.current = setTimeout(advance, 6500);
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [i]);
 
+  // Pre-load next image to avoid black flash
+  const nextIdx = (i + 1) % SLIDES.length;
+  const nextSlide = SLIDES[nextIdx];
+
   return (
     <section className="relative h-[100svh] min-h-[640px] w-full overflow-hidden bg-onyx text-cream">
+      {/* hidden preload for next image */}
+      {nextSlide.type === "image" && (
+        <link rel="preload" as="image" href={nextSlide.src} />
+      )}
+
       {SLIDES.map((s, idx) => (
         <div
           key={idx}
@@ -116,7 +123,6 @@ function HeroCarousel() {
               className="absolute inset-0 w-full h-full object-cover"
             >
               <source src={s.src} type="video/mp4" />
-              Your browser does not support the video tag.
             </video>
           ) : (
             <img
@@ -157,18 +163,10 @@ function HeroCarousel() {
       </div>
 
       {/* arrows */}
-      <button
-        onClick={back}
-        aria-label="Previous slide"
-        className="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center border border-cream/30 text-cream hover:bg-gold hover:text-onyx hover:border-gold transition-colors rounded-full"
-      >
+      <button onClick={back} aria-label="Previous slide" className="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center border border-cream/30 text-cream hover:bg-gold hover:text-onyx hover:border-gold transition-colors rounded-full">
         <ChevronLeft className="h-5 w-5" />
       </button>
-      <button
-        onClick={advance}
-        aria-label="Next slide"
-        className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center border border-cream/30 text-cream hover:bg-gold hover:text-onyx hover:border-gold transition-colors rounded-full"
-      >
+      <button onClick={advance} aria-label="Next slide" className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 items-center justify-center border border-cream/30 text-cream hover:bg-gold hover:text-onyx hover:border-gold transition-colors rounded-full">
         <ChevronRight className="h-5 w-5" />
       </button>
 
@@ -179,10 +177,7 @@ function HeroCarousel() {
             key={idx}
             onClick={() => setI(idx)}
             aria-label={`Slide ${idx + 1}`}
-            className={[
-              "h-[3px] transition-all duration-500",
-              idx === i ? "w-10 bg-gold" : "w-5 bg-cream/40 hover:bg-cream/70",
-            ].join(" ")}
+            className={["h-[3px] transition-all duration-500", idx === i ? "w-10 bg-gold" : "w-5 bg-cream/40 hover:bg-cream/70"].join(" ")}
           />
         ))}
       </div>
@@ -209,209 +204,29 @@ function MarqueeStrip() {
   );
 }
 
-// Static fallback — always used when backend has no entry yet
-const STATIC_SAFARI_IMAGES = [
-  "/gallery/safari-code/safari-01.jpg",
-  "/gallery/safari-code/safari-02.jpg",
-  "/gallery/safari-code/safari-03.jpg",
-  "/gallery/safari-code/safari-04.jpg",
-  "/gallery/safari-code/safari-05.jpg",
-  "/gallery/safari-code/safari-06.jpg",
+// ─── THE COLLECTIONS ────────────────────────────────────────────────────────
+const COLLECTION_CATS = [
+  { key: "safari",  label: "Safari Suits",  tagline: "Expedition Tailoring",  image: "/gallery/safari-code/safari-01.jpg" },
+  { key: "wedding", label: "Wedding Suits", tagline: "Sculpted for the Aisle", image: "/gallery/img-05.jpg" },
+  { key: "natives", label: "Natives",       tagline: "Heritage Reimagined",   image: "/gallery/img-10.jpg" },
+  { key: "ladies",  label: "Ladies",        tagline: "Couture for Her",       image: "/gallery/couple-02.jpg" },
 ];
-const STATIC_SAFARI_VIDEO = "/gallery/safari-code/safari-look.mp4";
-const STATIC_HERO_VIDEO = "/gallery/safari-code/safari-hero.mp4";
-
-function SafariCode() {
-  const { launch } = useFeaturedLaunch();
-  // Never block render — always show static content immediately,
-  // then swap to backend data once it arrives.
-
-  const title      = launch?.title        || "The Safari Code";
-  const subtitle   = launch?.subtitle     || "A new chapter from Sparks & Splendour — sun-drenched silhouettes, earthen palettes and expedition-grade tailoring engineered for the modern explorer.";
-  const eyebrow    = launch?.eyebrow      || "Capsule · Limited Edition";
-  const ctaLabel   = launch?.cta_label    || "Explore the Code";
-  const lookbookLabel = launch?.lookbook_label || "View Lookbook";
-
-  // Hero: backend video > backend image > static video
-  const heroVideo  = launch?.hero_video_url || STATIC_HERO_VIDEO;
-  const heroImage  = launch?.hero_image_url || null;
-
-  // Grid images: backend array (if non-empty) > static fallback
-  const images: string[] =
-    launch?.images && Array.isArray(launch.images) && launch.images.length > 0
-      ? launch.images
-      : STATIC_SAFARI_IMAGES;
-
-  // The "In Motion" slot: backend video url > static safari-look.mp4
-  const gridVideo = launch?.hero_video_url || STATIC_SAFARI_VIDEO;
-
-  return (
-    <section className="relative bg-onyx text-cream overflow-hidden">
-      {/* Cinematic hero */}
-      <div className="relative h-[78svh] min-h-[520px] w-full overflow-hidden">
-        {heroImage ? (
-          <img src={heroImage} alt={title} className="absolute inset-0 w-full h-full object-cover object-top" />
-        ) : (
-          <video
-            preload="metadata"
-            autoPlay
-            muted
-            playsInline
-            loop
-            className="absolute inset-0 w-full h-full object-cover"
-          >
-            <source src={heroVideo} type="video/mp4" />
-          </video>
-        )}
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.25)_45%,rgba(0,0,0,0.85)_100%)]" />
-
-        <div className="relative z-10 h-full container-luxe flex flex-col justify-end pb-14 md:pb-20">
-          <p className="text-eyebrow text-gold animate-fade-up">{eyebrow}</p>
-          <h2 className="font-serif-luxe leading-[0.95] tracking-tight mt-4 animate-fade-up text-[18vw] sm:text-[14vw] md:text-[10vw] lg:text-[8.5rem]">
-            {title.includes("Safari") ? (
-              <>{title.split("Safari")[0]}<span className="italic text-gold">Safari</span>{title.split("Safari")[1]}</>
-            ) : title}
-          </h2>
-          <div className="mt-6 max-w-xl animate-fade-up">
-            <span className="gold-divider" />
-            <p className="mt-5 text-cream/85 text-base md:text-lg leading-relaxed">{subtitle}</p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link to="/shop" className="group inline-flex items-center gap-3 bg-gold text-onyx px-8 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-cream transition-colors">
-                {ctaLabel}
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-              <Link to="/safari-lookbook" className="inline-flex items-center gap-3 border border-cream/40 text-cream px-8 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-cream hover:text-onyx transition-colors">
-                {lookbookLabel}
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="hidden md:flex absolute top-8 right-8 z-10 items-center gap-3 text-[10px] tracking-[0.4em] uppercase text-cream/70">
-          <span className="h-px w-10 bg-gold" />
-          SS · Capsule 01
-        </div>
-      </div>
-
-      {/* Lookbook preview grid */}
-      <div className="container-luxe py-16 md:py-24">
-        <div className="grid grid-cols-12 gap-3 md:gap-5">
-          {/* Large left image */}
-          <div className="col-span-12 md:col-span-7 relative aspect-[4/5] md:aspect-[5/6] overflow-hidden bg-charcoal/40 group">
-            <img src={images[0]} alt={`${title} look 1`} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-105" />
-            <div className="absolute bottom-0 inset-x-0 p-5 md:p-7 bg-gradient-to-t from-black/80 to-transparent">
-              <p className="text-[10px] tracking-[0.3em] uppercase text-gold">Look 01</p>
-              <h3 className="font-display text-2xl md:text-3xl mt-1 text-cream">The Voyager</h3>
-            </div>
-          </div>
-
-          {/* Right column: image + video */}
-          <div className="col-span-12 md:col-span-5 grid grid-rows-2 gap-3 md:gap-5">
-            <div className="relative overflow-hidden bg-charcoal/40 group aspect-[4/3]">
-              <img src={images[1] || images[0]} alt={`${title} look 2`} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-105" />
-            </div>
-            {/* Always show the video in this slot */}
-            <div className="relative overflow-hidden bg-charcoal/40 group aspect-[4/3]">
-              <video
-                preload="metadata"
-                src={gridVideo}
-                poster={images[2] || images[0]}
-                autoPlay
-                muted
-                playsInline
-                loop
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-              <div className="absolute bottom-3 left-3 text-[10px] tracking-[0.3em] uppercase text-cream/90 bg-onyx/60 px-2 py-1">In Motion</div>
-            </div>
-          </div>
-
-          {/* Bottom row: two portrait images + wide editorial */}
-          <div className="col-span-6 md:col-span-3 relative aspect-[3/4] overflow-hidden bg-charcoal/40 group">
-            <img src={images[3] || images[0]} alt={`${title} detail`} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-105" />
-          </div>
-          <div className="col-span-6 md:col-span-3 relative aspect-[3/4] overflow-hidden bg-charcoal/40 group">
-            <img src={images[4] || images[0]} alt={`${title} detail`} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-105" />
-          </div>
-          <div className="col-span-12 md:col-span-6 relative aspect-[16/10] overflow-hidden bg-charcoal/40 group">
-            <img src={images[5] || images[0]} alt={`${title} editorial`} loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-105" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-transparent to-transparent" />
-            <div className="absolute inset-y-0 left-0 p-6 md:p-10 flex flex-col justify-center max-w-sm">
-              <p className="text-[10px] tracking-[0.3em] uppercase text-gold">The Code</p>
-              <h3 className="font-display text-2xl md:text-3xl mt-2 text-cream leading-tight">Tailored for the Wild, Refined for the City.</h3>
-              <Link to="/shop" className="inline-flex items-center gap-2 mt-5 text-xs tracking-[0.3em] uppercase text-cream/90 hover:text-gold transition-colors">
-                Shop the Capsule <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-12 text-center">
-          <Link to="/safari-lookbook" className="inline-flex items-center gap-3 bg-cream text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold transition-colors">
-            View the full Lookbook
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function SafariSubCollection({
-  eyebrow, title, copy, images, reverse = false,
-}: { eyebrow: string; title: string; copy: string; images: string[]; reverse?: boolean }) {
-  return (
-    <div className="container-luxe py-14 md:py-20 border-t border-cream/10">
-      <div className={["grid lg:grid-cols-12 gap-6 md:gap-10 items-center", reverse ? "lg:[direction:rtl]" : ""].join(" ")}>
-        <div className="lg:col-span-4 [direction:ltr]">
-          <p className="text-eyebrow text-gold">{eyebrow}</p>
-          <h3 className="font-serif-luxe text-4xl md:text-5xl mt-3 leading-tight">{title}</h3>
-          <span className="gold-divider mt-5" />
-          <p className="mt-5 text-cream/75 leading-relaxed">{copy}</p>
-          <Link to="/shop" className="inline-flex items-center gap-2 mt-7 text-xs tracking-[0.3em] uppercase text-cream hover:text-gold transition-colors">
-            Shop the Chapter <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-        <div className="lg:col-span-8 grid grid-cols-3 gap-2 md:gap-3 [direction:ltr]">
-          {images.map((src, i) => (
-            <div key={src} className={["relative overflow-hidden bg-charcoal/40 group", i === 0 ? "col-span-2 row-span-2 aspect-[4/5]" : "aspect-[3/4]"].join(" ")}>
-              <img src={src} alt={title} loading="lazy" className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-105" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function CategoryGrid() {
-  const { categories: backendCats } = useCategories();
-  const cats = backendCats.length
-    ? backendCats.map((c) => {
-        const fallback = staticCategories.find((s) => s.key === c.slug);
-        return {
-          key: c.slug,
-          label: c.name,
-          tagline: c.description || fallback?.tagline || "",
-          image: c.image_url || fallback?.image || "",
-        };
-      })
-    : staticCategories;
-
   return (
     <section className="container-luxe py-20 md:py-28">
       <div className="text-center max-w-2xl mx-auto mb-14">
         <p className="text-eyebrow">Maisons</p>
-        <h2 className="font-display text-4xl md:text-5xl mt-3">The Collections</h2>
+        <h2 className="font-display text-4xl md:text-5xl mt-3">Our Collections</h2>
         <span className="gold-divider mt-5" />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
-        {cats.slice(0, 4).map((c, idx) => (
+        {COLLECTION_CATS.map((c, idx) => (
           <Link
             key={c.key}
             to="/shop"
-            search={{ category: c.key }}
+            search={{ category: c.key } as never}
             className={[
               "group relative overflow-hidden bg-muted aspect-[3/4]",
               idx === 0 ? "lg:row-span-2 lg:aspect-[3/4.2]" : "",
@@ -427,7 +242,7 @@ function CategoryGrid() {
               <p className="text-[10px] text-gold tracking-[0.3em] uppercase">{c.tagline}</p>
               <h3 className="font-display text-2xl md:text-3xl mt-1.5">{c.label}</h3>
               <span className="inline-flex items-center gap-2 mt-3 text-xs tracking-[0.25em] uppercase text-cream/90 group-hover:text-gold transition-colors">
-                Discover <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                Shop Now <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
               </span>
             </div>
           </Link>
@@ -437,70 +252,182 @@ function CategoryGrid() {
   );
 }
 
-function FeaturedProducts() {
+// ─── NEW IN ──────────────────────────────────────────────────────────────────
+const COLS = 4; // products per row on lg
+const NEW_IN_ROW = COLS; // one row = 4 items
+
+function NewIn() {
   const { products } = useProducts();
-  const featured = products.filter((p) => p.badge).slice(0, 8);
+  const list = products.slice(0, NEW_IN_ROW * 2); // max 2 rows worth
+  const [showExtra, setShowExtra] = useState(false);
+
+  // Reset to one row on mount (handles refresh / navigation back)
+  useEffect(() => { setShowExtra(false); }, []);
+
+  const visible = showExtra ? list : list.slice(0, NEW_IN_ROW);
+
   return (
     <section className="bg-secondary/30 py-20 md:py-28">
       <div className="container-luxe">
         <div className="flex items-end justify-between mb-12 gap-6 flex-wrap">
           <div>
-            <p className="text-eyebrow">Editor's Selection</p>
-            <h2 className="font-display text-4xl md:text-5xl mt-3">Signature Pieces</h2>
+            <p className="text-eyebrow">New In</p>
+            <h2 className="font-display text-4xl md:text-5xl mt-3">Just Arrived</h2>
             <span className="gold-divider mt-4" />
           </div>
           <Link to="/shop" className="text-xs tracking-[0.3em] uppercase font-semibold border-b-2 border-gold pb-1 hover:text-gold-deep transition-colors">
-            View All
+            Shop New In
           </Link>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
-          {featured.map((p, i) => <ProductCard key={p.id} product={p} priority={i < 4} />)}
+          {visible.map((p) => <ProductCard key={p.id} product={p} />)}
         </div>
+        {!showExtra && list.length > NEW_IN_ROW && (
+          <div className="mt-12 text-center">
+            <button
+              onClick={() => setShowExtra(true)}
+              className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
+            >
+              Load More
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function VideoShowcase() {
+// ─── SUITS SECTION ───────────────────────────────────────────────────────────
+const SUIT_TABS = [
+  { key: "safari",   label: "Safari" },
+  { key: "wedding",  label: "Wedding" },
+  { key: "business", label: "Business" },
+  { key: "dinner",   label: "Dinner" },
+  { key: "prom",     label: "Prom" },
+];
+
+const SUITS_PER_ROW = 4;
+const SUITS_INITIAL_ROWS = 3;
+
+function SuitsSection() {
+  const { products } = useProducts({ category: "suits" });
+  const [activeTab, setActiveTab] = useState("safari");
+  const [visibleRows, setVisibleRows] = useState(SUITS_INITIAL_ROWS);
+
+  // Reset rows when tab changes or on mount
+  useEffect(() => { setVisibleRows(SUITS_INITIAL_ROWS); }, [activeTab]);
+
+  // Filter by sub-category tag; since static products don't have sub-tags,
+  // we cycle through all suits and assign them to tabs by index for demo purposes.
+  // In production the product.sub_category field would be used.
+  const allSuits = products;
+  const tabFiltered = allSuits.filter((_, idx) => {
+    // Use modulo to distribute static products across tabs for visual demo
+    const tabIdx = SUIT_TABS.findIndex((t) => t.key === activeTab);
+    return idx % SUIT_TABS.length === tabIdx || allSuits.length <= SUIT_TABS.length;
+  });
+  // If filtering yields nothing (e.g. backend has sub_category field), fall back to all suits
+  const displayed = tabFiltered.length > 0 ? tabFiltered : allSuits;
+
+  const maxVisible = visibleRows * SUITS_PER_ROW;
+  const visible = displayed.slice(0, maxVisible);
+  const hasMore = displayed.length > maxVisible;
+
   return (
     <section className="container-luxe py-20 md:py-28">
-      <div className="text-center max-w-2xl mx-auto mb-14">
-        <p className="text-eyebrow">Behind the Craft</p>
-        <h2 className="font-display text-4xl md:text-5xl mt-3">The Atelier in Motion</h2>
+      {/* header */}
+      <div className="text-center max-w-2xl mx-auto mb-10">
+        <p className="text-eyebrow">Tailored Mastery</p>
+        <h2 className="font-display text-4xl md:text-5xl mt-3">Suits</h2>
         <span className="gold-divider mt-5" />
       </div>
-      <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-        <div className="relative aspect-[9/16] md:aspect-[4/5] overflow-hidden bg-onyx">
-          <video
-            src="/video/1015819499.mp4"
-            autoPlay
-            muted
-            playsInline
-            loop
-            className="w-full h-full object-cover object-top"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-          <div className="absolute bottom-0 inset-x-0 p-5 text-cream">
-            <p className="text-[10px] tracking-[0.3em] uppercase text-gold">Signature Suits</p>
-            <h3 className="font-display text-2xl mt-1">Sculpted to Perfection</h3>
-          </div>
-        </div>
-        <div className="relative aspect-[9/16] md:aspect-[4/5] overflow-hidden bg-onyx">
-          <video
-            src="/video/1068506149.mp4"
-            autoPlay
-            muted
-            playsInline
-            loop
-            className="w-full h-full object-cover object-top"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-          <div className="absolute bottom-0 inset-x-0 p-5 text-cream">
-            <p className="text-[10px] tracking-[0.3em] uppercase text-gold">Heritage Natives</p>
-            <h3 className="font-display text-2xl mt-1">Woven in Tradition</h3>
-          </div>
-        </div>
+
+      {/* sub-category tabs */}
+      <div className="flex items-center justify-center gap-1 md:gap-2 mb-12 border-b border-border">
+        {SUIT_TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={[
+              "px-5 py-3 text-xs tracking-[0.25em] uppercase font-medium whitespace-nowrap transition-all duration-300 border-b-2 -mb-px",
+              activeTab === t.key ? "text-gold-deep border-gold" : "text-muted-foreground border-transparent hover:text-foreground",
+            ].join(" ")}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
+
+      {/* grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+        {visible.map((p) => <ProductCard key={p.id} product={p} />)}
+      </div>
+
+      {/* load more */}
+      {hasMore && (
+        <div className="mt-12 text-center">
+          <button
+            onClick={() => setVisibleRows((r) => r + SUITS_INITIAL_ROWS)}
+            className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
+          >
+            Load More
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── SINGLE CATEGORY ROW ─────────────────────────────────────────────────────
+const CAT_ROW_INITIAL = 4; // one row of 4
+const CAT_ROW_MORE   = 4; // one more row on load-more
+
+function CategoryRow({ title, eyebrow, category, shopSearch }: {
+  title: string;
+  eyebrow: string;
+  category: string;
+  shopSearch: Record<string, string>;
+}) {
+  const { products } = useProducts({ category });
+  const [showMore, setShowMore] = useState(false);
+
+  // Reset on mount (refresh / navigate back)
+  useEffect(() => { setShowMore(false); }, []);
+
+  // Cycle images if fewer than needed — reuse existing ones
+  const pool = products.length > 0 ? products : [];
+  if (!pool.length) return null;
+
+  // Pad to at least 8 by cycling
+  const padded = Array.from({ length: CAT_ROW_INITIAL + CAT_ROW_MORE }, (_, i) => pool[i % pool.length]);
+  const visible = showMore ? padded : padded.slice(0, CAT_ROW_INITIAL);
+  const hasMore = !showMore && padded.length > CAT_ROW_INITIAL;
+
+  return (
+    <section className="container-luxe py-16 md:py-20 border-t border-border/40">
+      <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
+        <div>
+          <p className="text-eyebrow">{eyebrow}</p>
+          <h2 className="font-display text-3xl md:text-4xl mt-2">{title}</h2>
+          <span className="gold-divider mt-4" />
+        </div>
+        <Link to="/shop" search={shopSearch as never} className="text-xs tracking-[0.3em] uppercase font-semibold border-b-2 border-gold pb-1 hover:text-gold-deep transition-colors">
+          View All
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+        {visible.map((p, i) => <ProductCard key={`${p.id}-${i}`} product={p} />)}
+      </div>
+      {hasMore && (
+        <div className="mt-12 text-center">
+          <button
+            onClick={() => setShowMore(true)}
+            className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
+          >
+            Load More
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -529,7 +456,7 @@ function EditorialBanner() {
             {[
               { n: "12+", l: "Years of craft" },
               { n: "240", l: "Bespoke clients" },
-              { n: "9", l: "Master tailors" },
+              { n: "9",   l: "Master tailors" },
             ].map((s) => (
               <div key={s.l}>
                 <div className="font-display text-3xl md:text-4xl text-gold-deep">{s.n}</div>
@@ -541,28 +468,6 @@ function EditorialBanner() {
             Read Our Story
           </Link>
         </div>
-      </div>
-    </section>
-  );
-}
-
-function NewArrivals() {
-  const { products } = useProducts();
-  const list = products.slice(8, 14);
-  return (
-    <section className="container-luxe pb-20 md:pb-28">
-      <div className="flex items-end justify-between mb-12 gap-6 flex-wrap">
-        <div>
-          <p className="text-eyebrow">New In</p>
-          <h2 className="font-display text-4xl md:text-5xl mt-3">Just Arrived</h2>
-          <span className="gold-divider mt-4" />
-        </div>
-        <Link to="/shop" className="text-xs tracking-[0.3em] uppercase font-semibold border-b-2 border-gold pb-1 hover:text-gold-deep transition-colors">
-          Shop New In
-        </Link>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-5">
-        {list.map((p) => <ProductCard key={p.id} product={p} />)}
       </div>
     </section>
   );
@@ -622,10 +527,10 @@ function Testimonials() {
 
 function Promise() {
   const items = [
-    { I: Scissors, t: "Bespoke Atelier", d: "Hand-cut & finished by master tailors." },
-    { I: Award, t: "Heritage Fabrics", d: "Italian, Belgian & hand-loomed aso-oke." },
-    { I: Truck, t: "Worldwide Shipping", d: "Discreetly packaged & insured globally." },
-    { I: Star, t: "Lifetime Service", d: "Complimentary alterations on every piece." },
+    { I: Scissors, t: "Bespoke Atelier",   d: "Hand-cut & finished by master tailors." },
+    { I: Award,    t: "Heritage Fabrics",  d: "Italian, Belgian & hand-loomed aso-oke." },
+    { I: Truck,    t: "Worldwide Shipping", d: "Discreetly packaged & insured globally." },
+    { I: Star,     t: "Lifetime Service",  d: "Complimentary alterations on every piece." },
   ];
   return (
     <section className="container-luxe py-20">
@@ -647,12 +552,15 @@ function HomePage() {
     <>
       <HeroCarousel />
       <MarqueeStrip />
-      <SafariCode />
       <CategoryGrid />
-      <FeaturedProducts />
-      <VideoShowcase />
+      <NewIn />
+      <SuitsSection />
+      <CategoryRow title="Natives"  eyebrow="Heritage Reimagined"  category="natives"  shopSearch={{ category: "natives" }} />
+      <CategoryRow title="Agbada"   eyebrow="Royal Drape"          category="agbada"   shopSearch={{ category: "agbada" }} />
+      <CategoryRow title="Kaftan"   eyebrow="Refined Comfort"      category="kaftan"   shopSearch={{ category: "kaftan" }} />
+      <CategoryRow title="Ladies"   eyebrow="Couture for Her"      category="ladies"   shopSearch={{ category: "ladies" }} />
+      <CategoryRow title="Casuals"  eyebrow="Quiet Luxury"         category="casuals"  shopSearch={{ category: "casuals" }} />
       <EditorialBanner />
-      <NewArrivals />
       <PromoBanner />
       <Testimonials />
       <Promise />

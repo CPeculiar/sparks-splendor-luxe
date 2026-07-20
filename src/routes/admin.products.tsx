@@ -166,15 +166,26 @@ function ProductForm({
                 {categories.map((c) => <option key={c.slug} value={(c as any).id || c.slug}>{c.name}</option>)}
               </select>
             </Row>
-            <Row label="Badge">
-              <select value={p.badge ?? ""} onChange={(e) => set("badge", e.target.value || null)} className="inp">
+            <Row label="Sub-Category (for Suits)">
+              <select value={(p as any).sub_category ?? ""} onChange={(e) => set("sub_category" as any, e.target.value || null)} className="inp">
                 <option value="">— none —</option>
-                <option value="New">New</option>
-                <option value="Bestseller">Bestseller</option>
-                <option value="Limited">Limited</option>
+                <option value="safari">Safari</option>
+                <option value="wedding">Wedding</option>
+                <option value="business">Business</option>
+                <option value="dinner">Dinner</option>
+                <option value="prom">Prom</option>
               </select>
             </Row>
           </div>
+
+          <Row label="Badge">
+            <select value={p.badge ?? ""} onChange={(e) => set("badge", e.target.value || null)} className="inp">
+              <option value="">— none —</option>
+              <option value="New">New</option>
+              <option value="Bestseller">Bestseller</option>
+              <option value="Limited">Limited</option>
+            </select>
+          </Row>
 
           <div className="grid grid-cols-3 gap-4">
             <Row label="Price (₦)"><input type="number" value={p.price ?? 0} onChange={(e) => set("price", Number(e.target.value))} className="inp" /></Row>
