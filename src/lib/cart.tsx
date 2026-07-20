@@ -7,8 +7,8 @@ import type { Product } from "./products";
 export interface CartItem {
   product: Product;
   quantity: number;
-  size: string;
-  color: string;
+  size?: string | null;
+  color?: string | null;
 }
 
 interface CartCtx {

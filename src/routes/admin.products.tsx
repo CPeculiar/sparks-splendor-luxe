@@ -116,7 +116,7 @@ function AdminProducts() {
   );
 }
 
-type FormProduct = Partial<AdminProduct> & { colors?: string[]; sizes?: string[] };
+type FormProduct = Partial<AdminProduct> & { colors?: string[]; sizes?: string[]; gallery?: string[] };
 
 function ProductForm({
   initial, categories, onCancel, onSave,

@@ -105,8 +105,8 @@ function CartPage() {
       product_name: item.product.name,
       quantity: item.quantity,
       unit_price: item.product.price,
-      color: item.color || null,
-      size: item.size || null,
+      color: item.color ?? undefined,
+      size: item.size ?? undefined,
     }));
     const payload = {
       email,
@@ -324,16 +324,16 @@ function CartPage() {
                   <Link to="/product/$slug" params={{ slug: item.product.slug }} className="font-display text-base md:text-lg leading-tight hover:text-gold-deep">
                     {item.product.name}
                   </Link>
-                  <button onClick={() => remove(item.product.id, item.size, item.color)} className="text-muted-foreground hover:text-destructive" aria-label="Remove">
+                  <button onClick={() => remove(item.product.id, item.size || "", item.color || "")} className="text-muted-foreground hover:text-destructive" aria-label="Remove">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Size {item.size || "-"} · {item.color || "-"}</p>
                 <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
                   <div className="flex items-center border border-border">
-                    <button onClick={() => update(item.product.id, item.size, item.color, item.quantity - 1)} className="px-2 py-1.5 hover:bg-muted" aria-label="Decrease"><Minus className="h-3 w-3" /></button>
+                    <button onClick={() => update(item.product.id, item.size || "", item.color || "", item.quantity - 1)} className="px-2 py-1.5 hover:bg-muted" aria-label="Decrease"><Minus className="h-3 w-3" /></button>
                     <span className="px-3 text-sm tabular-nums">{item.quantity}</span>
-                    <button onClick={() => update(item.product.id, item.size, item.color, item.quantity + 1)} className="px-2 py-1.5 hover:bg-muted" aria-label="Increase"><Plus className="h-3 w-3" /></button>
+                    <button onClick={() => update(item.product.id, item.size || "", item.color || "", item.quantity + 1)} className="px-2 py-1.5 hover:bg-muted" aria-label="Increase"><Plus className="h-3 w-3" /></button>
                   </div>
                   <span className="text-sm font-medium tabular-nums">{format(item.product.price * item.quantity)}</span>
                 </div>

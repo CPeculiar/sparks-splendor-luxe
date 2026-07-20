@@ -1,8 +1,9 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { Eye, EyeOff, Camera } from "lucide-react";
 import {
   getCurrentUser,
+  getUserOrders,
   isAuthenticated,
   login,
   logout,
@@ -13,7 +14,9 @@ import {
   forgotPassword,
   resetPassword,
   AuthUser,
+  UserOrder,
 } from "@/lib/auth";
+import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@/lib/cloudinary";
 
 declare global {
   interface Window {
@@ -27,14 +30,10 @@ export const Route = createFileRoute("/account")({
   component: AccountPage,
 });
 
-function loadGoogleScript() {
+function loadGoogleScript(): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    if (typeof window === "undefined") {
-      return reject(new Error("ssr"));
-    }
-    if (window.google) {
-      return resolve();
-    }
+    if (typeof window === "undefined") return reject(new Error("ssr"));
+    if (window.google?.accounts?.id) return resolve();
     const existing = document.querySelector<HTMLScriptElement>('script[data-google="1"]');
     if (existing) {
       existing.addEventListener("load", () => resolve());
@@ -44,11 +43,10 @@ function loadGoogleScript() {
     const script = document.createElement("script");
     script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
-    script.defer = true;
     script.dataset.google = "1";
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Google script failed"));
-    document.body.appendChild(script);
+    script.onerror = () => reject(new Error("Google script failed to load"));
+    document.head.appendChild(script);
   });
 }
 
@@ -68,6 +66,28 @@ function AccountPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [gsiReady, setGsiReady] = useState(false);
+  const [gsiError, setGsiError] = useState<string | null>(null);
+  const googleCallbackRef = useRef<((response: any) => Promise<void>) | null>(null);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const [orders, setOrders] = useState<UserOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  const fmt = (value: string | number) => `₦${Number(value).toLocaleString("en-NG")}`;
+
+  const loadOrders = async () => {
+    setOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const data = await getUserOrders();
+      setOrders(data);
+    } catch (err) {
+      setOrdersError(err instanceof Error ? err.message : "Unable to load orders");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (search.reset_token) {
@@ -78,11 +98,10 @@ function AccountPage() {
     const existingUser = getCurrentUser();
     if (existingUser) {
       setUser(existingUser);
-      setFirstName(existingUser.first_name || "");
-      setLastName(existingUser.last_name || "");
-      setPhone(existingUser.phone || "");
-      setEmail(existingUser.email);
-      setProfileImage(existingUser.profile_image || "");
+      hydrateForm(existingUser);
+      void loadOrders();
+      // Always re-fetch to get latest data from server (including Google profile_image)
+      void loadUser().then((fresh) => { setUser(fresh); hydrateForm(fresh); }).catch(() => {});
       return;
     }
 
@@ -90,17 +109,51 @@ function AccountPage() {
       void loadUser()
         .then((fetched) => {
           setUser(fetched);
-          setFirstName(fetched.first_name || "");
-          setLastName(fetched.last_name || "");
-          setPhone(fetched.phone || "");
-          setEmail(fetched.email);
-          setProfileImage(fetched.profile_image || "");
+          hydrateForm(fetched);
+          void loadOrders();
         })
         .catch(() => {
           logout();
         });
     }
   }, [search.reset_token]);
+
+  const renderGoogleButton = useCallback(() => {
+    if (!googleBtnRef.current || !window.google?.accounts?.id || !GOOGLE_CLIENT_ID) return;
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: (response: any) => {
+        if (googleCallbackRef.current) void googleCallbackRef.current(response);
+      },
+    });
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      type: "standard",
+      theme: "outline",
+      size: "large",
+      text: "continue_with",
+      width: googleBtnRef.current.offsetWidth || 400,
+    });
+    setGsiReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      setGsiError("Google client ID is not configured.");
+      return;
+    }
+    let mounted = true;
+    loadGoogleScript()
+      .then(() => {
+        if (!mounted) return;
+        setGsiError(null);
+        renderGoogleButton();
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setGsiError(err instanceof Error ? err.message : "Google script failed to load.");
+      });
+    return () => { mounted = false; };
+  }, [renderGoogleButton]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -183,9 +236,36 @@ function AccountPage() {
         profile_image: profileImage,
       });
       setUser(updated);
+      hydrateForm(updated);
       setStatus("Profile updated.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      form.append("folder", "sparks-splendor/avatars");
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Upload failed");
+      const url: string = data.secure_url;
+      setProfileImage(url);
+      // Save immediately
+      const updated = await updateProfile({ first_name: firstName, last_name: lastName, phone, profile_image: url });
+      setUser(updated);
+      hydrateForm(updated);
+      setStatus("Profile photo updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setBusy(false);
     }
@@ -197,35 +277,59 @@ function AccountPage() {
     setStatus("Signed out successfully.");
   };
 
-  const handleGoogleSignIn = async () => {
-    setError(null);
-    setStatus(null);
-    setBusy(true);
-    try {
-      await loadGoogleScript();
-      if (!window.google) {
-        throw new Error("Google sign-in is unavailable.");
+  function StatusBadge({ status }: { status: string }) {
+    const map: Record<string, string> = {
+      completed: "bg-emerald-100 text-emerald-700",
+      paid: "bg-emerald-100 text-emerald-700",
+      pending: "bg-amber-100 text-amber-700",
+      processing: "bg-blue-100 text-blue-700",
+      shipped: "bg-indigo-100 text-indigo-700",
+      delivered: "bg-emerald-100 text-emerald-700",
+      cancelled: "bg-rose-100 text-rose-700",
+      refunded: "bg-zinc-200 text-zinc-700",
+      failed: "bg-rose-100 text-rose-700",
+    };
+
+    return (
+      <span className={`inline-block px-2 py-1 rounded text-[10px] uppercase tracking-[0.2em] font-semibold ${map[status] ?? "bg-zinc-100 text-zinc-700"}`}>
+        {status}
+      </span>
+    );
+  }
+
+  function hydrateForm(u: AuthUser) {
+    setFirstName(u.first_name || "");
+    setLastName(u.last_name || "");
+    setPhone(u.phone || "");
+    setEmail(u.email);
+    setProfileImage(u.profile_image || "");
+  }
+
+  // Keep callback ref always up-to-date so the rendered button uses latest state
+  useEffect(() => {
+    googleCallbackRef.current = async (response: any) => {
+      setBusy(true);
+      setError(null);
+      setStatus(null);
+      try {
+        const userData = await googleLogin(response.credential);
+        setUser(userData);
+        hydrateForm(userData);
+        setStatus("Signed in with Google.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Google sign in failed.");
+      } finally {
+        setBusy(false);
       }
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (response: any) => {
-          try {
-            const userData = await googleLogin(response.credential);
-            setUser(userData);
-            setStatus("Signed in with Google.");
-          } catch (err) {
-            setError(err instanceof Error ? err.message : "Google sign in failed.");
-          } finally {
-            setBusy(false);
-          }
-        },
-      });
-      window.google.accounts.id.prompt();
-    } catch (err) {
-      setBusy(false);
-      setError(err instanceof Error ? err.message : "Google sign in failed.");
+    };
+  });
+
+  // Re-render Google button when switching to signin/signup mode
+  useEffect(() => {
+    if (mode === "signin" || mode === "signup") {
+      setTimeout(() => renderGoogleButton(), 50);
     }
-  };
+  }, [mode, renderGoogleButton]);
 
   const renderStatus = () => {
     return status ? <p className="text-sm text-success">{status}</p> : null;
@@ -250,9 +354,33 @@ function AccountPage() {
 
         <div className="flex items-center justify-center px-6 py-16">
           <div className="w-full max-w-md space-y-6">
-            <div className="text-center">
-              <p className="text-eyebrow">Welcome back</p>
-              <h1 className="font-display text-4xl mt-3">Your Profile</h1>
+            {/* Avatar */}
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative group">
+                <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-border bg-muted flex items-center justify-center">
+                  {profileImage ? (
+                    <img src={profileImage} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-2xl font-display text-muted-foreground">
+                      {firstName ? firstName[0].toUpperCase() : (email ? email[0].toUpperCase() : "?")}
+                    </span>
+                  )}
+                </div>
+                <label className="absolute inset-0 rounded-full flex items-center justify-center bg-onyx/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera className="h-5 w-5 text-cream" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); }}
+                  />
+                </label>
+              </div>
+              <div className="text-center">
+                <p className="text-eyebrow">Welcome back</p>
+                <h1 className="font-display text-4xl mt-1">Your Profile</h1>
+                <p className="text-xs text-muted-foreground mt-1">Hover photo to change</p>
+              </div>
             </div>
 
             {renderStatus()}
@@ -262,7 +390,7 @@ function AccountPage() {
               <div className="grid gap-4">
                 <div>
                   <label className="text-eyebrow block mb-2">Email</label>
-                  <input value={email} readOnly className="w-full border border-border bg-muted px-4 py-3 text-sm" />
+                  <input value={email} readOnly className="w-full border border-border bg-muted px-4 py-3 text-sm text-muted-foreground" />
                 </div>
                 <div>
                   <label className="text-eyebrow block mb-2">First name</label>
@@ -274,15 +402,17 @@ function AccountPage() {
                 </div>
                 <div>
                   <label className="text-eyebrow block mb-2">Phone</label>
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
-                </div>
-                <div>
-                  <label className="text-eyebrow block mb-2">Profile image URL</label>
-                  <input value={profileImage} onChange={(e) => setProfileImage(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="+234 800 000 0000"
+                    className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold"
+                  />
                 </div>
               </div>
 
-              <button type="submit" className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60">
+              <button type="submit" disabled={busy} className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60">
                 Save Profile
               </button>
             </form>
@@ -290,6 +420,73 @@ function AccountPage() {
             <button onClick={handleLogout} className="w-full border border-border py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:border-gold transition-colors">
               Sign Out
             </button>
+
+            <div className="mt-12">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
+                <div>
+                  <p className="text-eyebrow">Recent orders</p>
+                  <p className="text-sm text-muted-foreground">Your confirmed payments and order status history.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {ordersLoading && <p className="text-xs uppercase text-muted-foreground">Loading orders…</p>}
+                  <Link to="/account/orders" className="inline-flex items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-foreground hover:border-gold transition-colors">
+                    View all orders
+                  </Link>
+                </div>
+              </div>
+
+              {ordersError && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{ordersError}</p>}
+              {!ordersLoading && !orders.length && !ordersError && (
+                <p className="text-sm text-muted-foreground">No orders yet. Your completed purchases will appear here.</p>
+              )}
+
+              {!ordersLoading && orders.length > 0 && (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <div key={order.id} className="rounded-xl border border-border bg-secondary/10 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Order</p>
+                          <p className="font-mono text-sm">{order.order_number}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Payment</p>
+                            <StatusBadge status={order.payment_status} />
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Order</p>
+                            <StatusBadge status={order.order_status} />
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Total</p>
+                          <p className="font-medium">{fmt(order.total)}</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
+                        <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                        {order.items?.length ? (
+                          <div className="mt-3">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Items</p>
+                            <ul className="space-y-1 text-sm">
+                              {order.items.slice(0, 3).map((item, index) => (
+                                <li key={index}>
+                                  {item.product_name} × {item.quantity}
+                                </li>
+                              ))}
+                              {order.items.length > 3 && (
+                                <li className="text-xs text-muted-foreground">+ {order.items.length - 3} more items</li>
+                              )}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -315,11 +512,22 @@ function AccountPage() {
             {mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : mode === "forgot" ? "Reset Your Password" : "Enter New Password"}
           </h1>
 
-          {GOOGLE_CLIENT_ID && mode === "signin" && (
-            <button onClick={handleGoogleSignIn} className="w-full mt-8 border border-border h-12 text-sm font-medium hover:border-gold transition-colors flex items-center justify-center gap-3">
-              <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-              Continue with Google
-            </button>
+          {(mode === "signin" || mode === "signup") && (
+            <div className="mt-8">
+              {/* Google renders its own branded button into this div */}
+              <div
+                ref={googleBtnRef}
+                className="w-full flex justify-center"
+                style={{ minHeight: 44 }}
+              />
+              {!gsiReady && !gsiError && (
+                <div className="w-full h-11 border border-border flex items-center justify-center gap-3 text-sm text-muted-foreground">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeDasharray="40" strokeDashoffset="15" /></svg>
+                  Loading Google…
+                </div>
+              )}
+              {gsiError && <p className="mt-2 text-sm text-destructive text-center">{gsiError}</p>}
+            </div>
           )}
 
           <div className="flex items-center gap-3 my-6">
@@ -385,7 +593,7 @@ function AccountPage() {
                     <input
                       type={showPw ? "text" : "password"}
                       required
-                      value={mode === "forgot" ? "" : password}
+                      value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold"
                     />

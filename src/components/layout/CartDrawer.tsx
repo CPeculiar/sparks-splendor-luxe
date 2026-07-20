@@ -68,7 +68,7 @@ export function CartDrawer() {
                         {it.product.name}
                       </Link>
                       <button
-                        onClick={() => remove(it.product.id, it.size, it.color)}
+                        onClick={() => remove(it.product.id, it.size || "", it.color || "")}
                         className="text-muted-foreground hover:text-destructive transition-colors"
                         aria-label="Remove"
                       >
@@ -81,7 +81,7 @@ export function CartDrawer() {
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center border border-border">
                         <button
-                          onClick={() => update(it.product.id, it.size, it.color, it.quantity - 1)}
+                          onClick={() => update(it.product.id, it.size || "", it.color || "", it.quantity - 1)}
                           className="px-2 py-1 hover:bg-muted"
                           aria-label="Decrease"
                         >
@@ -89,7 +89,7 @@ export function CartDrawer() {
                         </button>
                         <span className="px-3 text-sm tabular-nums">{it.quantity}</span>
                         <button
-                          onClick={() => update(it.product.id, it.size, it.color, it.quantity + 1)}
+                          onClick={() => update(it.product.id, it.size || "", it.color || "", it.quantity + 1)}
                           className="px-2 py-1 hover:bg-muted"
                           aria-label="Increase"
                         >

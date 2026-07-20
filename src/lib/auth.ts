@@ -117,6 +117,23 @@ export async function loadUser() {
   return data.user;
 }
 
+export interface UserOrder {
+  id: string;
+  order_number: string;
+  total: number;
+  order_status: string;
+  payment_status: string;
+  created_at: string;
+  updated_at: string;
+  items?: any[];
+  payments?: any[];
+}
+
+export async function getUserOrders() {
+  const data = await fetchJson<{ data: UserOrder[] }>("/api/orders/user");
+  return data.data;
+}
+
 export async function updateProfile(profile: Partial<AuthUser>) {
   const data = await fetchJson<{ user: AuthUser }>("/api/auth/profile", {
     method: "PUT",

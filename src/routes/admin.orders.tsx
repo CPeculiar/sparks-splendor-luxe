@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { fetchOrders, updateOrderStatus, type AdminOrder } from "@/lib/admin";
+import { fetchOrders, updateOrderStatus, fetchOrderEdits, postOrderEdit, refundOrder, type AdminOrder } from "@/lib/admin";
 import { StatusPill } from "./admin.index";
 
 export const Route = createFileRoute("/admin/orders")({
@@ -16,14 +16,31 @@ function AdminOrders() {
   const [error, setError]     = useState<string | null>(null);
   const [q, setQ]             = useState("");
   const [opened, setOpened]   = useState<AdminOrder | null>(null);
+  const [refundAmount, setRefundAmount] = useState<number | null>(null);
+  const [gatewayRefund, setGatewayRefund] = useState(false);
+  const [editNote, setEditNote] = useState('');
+  const [editChanges, setEditChanges] = useState('');
+  const [editsReloadKey, setEditsReloadKey] = useState(0);
 
   useEffect(() => { void load(); }, []);
+
+  useEffect(() => {
+    if (opened) setRefundAmount(Number(opened.total));
+  }, [opened]);
 
   async function load() {
     setLoading(true);
     try { setOrders(await fetchOrders()); }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
+  }
+
+  async function loadEdits(orderId: string) {
+    try {
+      const edits = await fetchOrderEdits(orderId);
+      // parse changes JSON if necessary
+      return edits.map((e: any) => ({ ...e, changes: typeof e.changes === 'string' ? JSON.parse(e.changes) : e.changes }));
+    } catch (e) { return []; }
   }
 
   const filtered = useMemo(() => {
@@ -122,11 +139,84 @@ function AdminOrders() {
                   {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
+              <div>
+                <p className="text-eyebrow mb-2">Edit History</p>
+                <div className="text-xs text-muted-foreground max-h-40 overflow-y-auto border border-border p-2">
+                  <OrderEditsList orderId={opened.id} reloadKey={editsReloadKey} />
+                </div>
+                <div className="mt-3">
+                  <p className="text-eyebrow mb-2">Add manual edit</p>
+                  <textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Note to record" className="w-full p-2 border border-border text-sm mb-2" />
+                  <textarea value={editChanges} onChange={(e) => setEditChanges(e.target.value)} placeholder='Optional JSON changes: {"order_status":"cancelled"}' className="w-full p-2 border border-border text-sm mb-2" />
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      try {
+                        const parsed = editChanges ? JSON.parse(editChanges) : undefined;
+                        await postOrderEdit(opened.id, { changes: parsed, note: editNote });
+                        setEditNote(''); setEditChanges(''); setEditsReloadKey((k) => k + 1);
+                        alert('Edit recorded');
+                      } catch (e) { alert(e instanceof Error ? e.message : 'Failed'); }
+                    }} className="px-3 py-2 bg-onyx text-cream text-xs">Save Edit</button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <p className="text-eyebrow mb-2">Actions</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs">Amount</label>
+                    <input type="number" value={refundAmount ?? ''} onChange={(e) => setRefundAmount(Number(e.target.value))} className="inp w-36 text-sm" />
+                    <label className="flex items-center gap-2 text-xs ml-2">
+                      <input type="checkbox" checked={gatewayRefund} onChange={(e) => setGatewayRefund(e.target.checked)} />
+                      <span>Gateway refund</span>
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={async () => {
+                      if (!refundAmount || refundAmount <= 0) { alert('Enter a valid refund amount'); return; }
+                      if (!confirm(`Process refund of ₦${Number(refundAmount).toLocaleString()}?`)) return;
+                      try {
+                        await refundOrder(opened.id, { amount: Number(refundAmount), reason: 'Admin partial refund', gateway_refund: gatewayRefund });
+                        alert('Refund recorded');
+                        void load();
+                        setOpened(null);
+                      } catch (e) { alert(e instanceof Error ? e.message : 'Failed'); }
+                    }} className="px-3 py-2 bg-red-600 text-white text-xs">Refund</button>
+                    <button onClick={() => { setRefundAmount(Number(opened.total)); setGatewayRefund(false); }} className="px-3 py-2 border border-border text-xs">Reset</button>
+                  </div>
+                </div>
+              </div>
               <button onClick={() => setOpened(null)} className="w-full border border-border py-3 text-xs tracking-[0.25em] uppercase hover:border-gold">Close</button>
             </div>
           </aside>
         </div>
       )}
     </div>
+  );
+}
+
+function OrderEditsList({ orderId, reloadKey }: { orderId: string; reloadKey?: number }) {
+  const [edits, setEdits] = useState<any[] | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const e = await fetchOrderEdits(orderId);
+      if (!mounted) return;
+      setEdits(e.map((it: any) => ({ ...it, changes: typeof it.changes === "string" ? JSON.parse(it.changes) : it.changes })));
+    })();
+    return () => { mounted = false; };
+  }, [orderId, reloadKey]);
+  if (!edits) return <div className="text-xs text-muted-foreground">Loading…</div>;
+  if (!edits.length) return <div className="text-xs text-muted-foreground">No edits recorded.</div>;
+  return (
+    <ul className="space-y-2">
+      {edits.map((e) => (
+        <li key={e.id} className="border-b border-border pb-2">
+          <div className="text-[11px]">{new Date(e.created_at).toLocaleString()} • <span className="text-xs text-muted-foreground">{e.actor_email || e.actor_role}</span></div>
+          <div className="text-xs mt-1">{e.note}</div>
+          <pre className="text-[11px] mt-1 bg-secondary/10 p-2 overflow-x-auto">{JSON.stringify(e.changes, null, 2)}</pre>
+        </li>
+      ))}
+    </ul>
   );
 }

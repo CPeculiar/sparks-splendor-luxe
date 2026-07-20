@@ -1,0 +1,78 @@
+﻿src/integrations/supabase/auth-middleware.ts(4,30): error TS2307: Cannot find module '@supabase/supabase-js' or its corresponding type declarations.
+src/integrations/supabase/client.server.ts(5,30): error TS2307: Cannot find module '@supabase/supabase-js' or its corresponding type declarations.
+src/integrations/supabase/client.ts(2,30): error TS2307: Cannot find module '@supabase/supabase-js' or its corresponding type declarations.
+src/lib/admin.ts(13,5): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; "Content-Type": string; } | { Authorization?: undefined; "Content-Type": string; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ Authorization?: undefined; "Content-Type": string; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ Authorization?: undefined; "Content-Type": string; }' is not assignable to type 'undefined'.
+  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; "Content-Type": string; } | { Authorization?: undefined; "Content-Type": string; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ Authorization?: undefined; "Content-Type": string; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ Authorization?: undefined; "Content-Type": string; }' is not assignable to type 'undefined'.
+src/lib/admin.ts(206,14): error TS2345: Argument of type '"PATCH"' is not assignable to parameter of type '"GET" | "POST" | "PUT" | "DELETE"'.
+src/lib/admin.ts(210,14): error TS2345: Argument of type '"PATCH"' is not assignable to parameter of type '"GET" | "POST" | "PUT" | "DELETE"'.
+src/lib/admin.ts(214,14): error TS2345: Argument of type '"PATCH"' is not assignable to parameter of type '"GET" | "POST" | "PUT" | "DELETE"'.
+src/lib/admin.ts(267,14): error TS2345: Argument of type '"PATCH"' is not assignable to parameter of type '"GET" | "POST" | "PUT" | "DELETE"'.
+src/lib/admin.ts(381,75): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; } | { Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ Authorization?: undefined; }' is not assignable to type 'undefined'.
+  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; } | { Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ Authorization?: undefined; }' is not assignable to type 'undefined'.
+src/lib/admin.ts(392,5): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; } | { Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ Authorization?: undefined; }' is not assignable to type 'undefined'.
+  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; } | { Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ Authorization?: undefined; }' is not assignable to type 'undefined'.
+src/lib/featuredLaunch.ts(68,5): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(input: string | URL | Request, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; "Content-Type": string; } | { "Content-Type": string; Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ "Content-Type": string; Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ "Content-Type": string; Authorization?: undefined; }' is not assignable to type 'Record<string, string>'.
+          Property 'Authorization' is incompatible with index signature.
+            Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(input: URL | RequestInfo, init?: RequestInit | undefined): Promise<Response>', gave the following error.
+    Type '{ Authorization: string; "Content-Type": string; } | { "Content-Type": string; Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+      Type '{ "Content-Type": string; Authorization?: undefined; }' is not assignable to type 'HeadersInit | undefined'.
+        Type '{ "Content-Type": string; Authorization?: undefined; }' is not assignable to type 'Record<string, string>'.
+          Property 'Authorization' is incompatible with index signature.
+            Type 'undefined' is not assignable to type 'string'.
+src/routes/admin.categories.tsx(28,78): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/routes/admin.categories.tsx(28,112): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/routes/admin.categories.tsx(29,61): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/routes/admin.categories.tsx(29,95): error TS2322: Type 'string | null | undefined' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/routes/admin.orders.tsx(155,31): error TS2304: Cannot find name 'postOrderEdit'.
+src/routes/admin.products.tsx(146,7): error TS2353: Object literal may only specify known properties, and 'gallery' does not exist in type 'FormProduct'.
+src/routes/admin.tsx(78,19): error TS2339: Property 'type' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'type' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; }'.
+src/routes/admin.tsx(85,30): error TS2339: Property 'exact' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'exact' does not exist on type '{ readonly label: "Catalog & Content"; readonly type: "section"; }'.
+src/routes/admin.tsx(85,53): error TS2339: Property 'to' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'to' does not exist on type '{ readonly label: "Catalog & Content"; readonly type: "section"; }'.
+src/routes/admin.tsx(85,80): error TS2339: Property 'to' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'to' does not exist on type '{ readonly label: "Catalog & Content"; readonly type: "section"; }'.
+src/routes/admin.tsx(88,24): error TS2339: Property 'to' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'to' does not exist on type '{ readonly label: "Catalog & Content"; readonly type: "section"; }'.
+src/routes/admin.tsx(89,23): error TS2339: Property 'to' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'to' does not exist on type '{ readonly label: "Catalog & Content"; readonly type: "section"; }'.
+src/routes/admin.tsx(95,20): error TS2339: Property 'icon' does not exist on type '{ readonly to: "/admin"; readonly label: "Dashboard"; readonly icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; readonly exact: true; } | ... 24 more ... | { ...; }'.
+  Property 'icon' does not exist on type '{ readonly label: "Catalog & Content"; readonly type: "section"; }'.
+src/routes/cart.tsx(147,7): error TS2322: Type '{ product_id: string; product_name: string; quantity: number; unit_price: number; color: string | null; size: string | null; }[]' is not assignable to type '{ product_name: string; quantity: number; unit_price: number; size?: string | undefined; color?: string | undefined; }[]'.
+  Type '{ product_id: string; product_name: string; quantity: number; unit_price: number; color: string | null; size: string | null; }' is not assignable to type '{ product_name: string; quantity: number; unit_price: number; size?: string | undefined; color?: string | undefined; }'.
+    Types of property 'size' are incompatible.
+      Type 'string | null' is not assignable to type 'string | undefined'.
+        Type 'null' is not assignable to type 'string | undefined'.
+src/routes/cart.tsx(176,21): error TS2367: This comparison appears to be unintentional because the types '"NGN"' and '"USD"' have no overlap.
+src/routes/cart.tsx(362,14): error TS2367: This comparison appears to be unintentional because the types '"NGN"' and '"USD"' have no overlap.

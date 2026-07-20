@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Search, ShoppingBag, Menu, X, User } from "lucide-react";
 import logo from "@/assets/logo-mark.png";
 import { useCart } from "@/lib/cart";
+import { getCurrentUser, isAuthenticated, type AuthUser } from "@/lib/auth";
 
 const NAV = [
   { label: "Home", to: "/" },
@@ -18,6 +19,7 @@ export function Header() {
   const { count, setOpen } = useCart();
   const [scrolled, setScrolled] = useState(false);
   const [mobile, setMobile] = useState(false);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
   const { pathname } = useLocation();
   const isHome = pathname === "/";
@@ -30,6 +32,11 @@ export function Header() {
   }, []);
 
   useEffect(() => { setMobile(false); }, [pathname]);
+
+  // Refresh auth user on every route change so avatar stays in sync
+  useEffect(() => {
+    setAuthUser(isAuthenticated() ? getCurrentUser() : null);
+  }, [pathname]);
 
   const transparent = isHome && !scrolled; // transparent over hero (dark bg), solid elsewhere
 
@@ -90,8 +97,16 @@ export function Header() {
             <button className={["p-2 hover:text-gold transition-colors", transparent ? "text-cream" : "text-foreground"].join(" ")} aria-label="Search">
               <Search className="h-[18px] w-[18px]" />
             </button>
-            <Link to="/account" className={["p-2 hover:text-gold transition-colors hidden sm:inline-flex", transparent ? "text-cream" : "text-foreground"].join(" ")} aria-label="Account">
-              <User className="h-[18px] w-[18px]" />
+            <Link to="/account" className={["p-1 hover:text-gold transition-colors hidden sm:inline-flex items-center justify-center", transparent ? "text-cream" : "text-foreground"].join(" ")} aria-label="Account">
+              {authUser?.profile_image ? (
+                <img src={authUser.profile_image} alt="Profile" className="h-7 w-7 rounded-full object-cover border border-border" />
+              ) : authUser ? (
+                <span className="h-7 w-7 rounded-full bg-gold text-onyx text-[11px] font-semibold flex items-center justify-center">
+                  {(authUser.first_name?.[0] || authUser.email[0]).toUpperCase()}
+                </span>
+              ) : (
+                <User className="h-[18px] w-[18px]" />
+              )}
             </Link>
             <button
               className={["relative p-2 hover:text-gold transition-colors", transparent ? "text-cream" : "text-foreground"].join(" ")}

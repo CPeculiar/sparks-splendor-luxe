@@ -2,15 +2,21 @@ import { getAuthToken } from "@/lib/auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
 }
 
-async function call<T = any>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+function jsonHeaders(): Record<string, string> {
+  return { "Content-Type": "application/json", ...authHeaders() };
+}
+
+async function call<T = any>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: { "Content-Type": "application/json", ...authHeaders() },
+    headers: jsonHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json();
@@ -60,6 +66,22 @@ export const updateOrderStatus = async (id: string, order_status: string) => {
   return r.data;
 };
 
+// Order edits / refunds
+export const fetchOrderEdits = async (orderId: string) => {
+  const r = await call<{ data: any[] }>("GET", `/api/admin/orders/${orderId}/edits`);
+  return r.data;
+};
+
+export const postOrderEdit = async (orderId: string, payload: { changes?: any; note?: string }) => {
+  const r = await call<{ data: any }>("POST", `/api/admin/orders/${orderId}/edits`, payload);
+  return r.data;
+};
+
+export const refundOrder = async (orderId: string, payload: { amount: number; reason?: string; gateway_refund?: boolean }) => {
+  const r = await call<{ message?: string }>("POST", `/api/admin/orders/${orderId}/refund`, payload);
+  return r;
+};
+
 // ── Customers / Users ────────────────────────────────────────────────────────
 export interface AdminUser {
   id: string;
@@ -96,6 +118,36 @@ export const deleteUser = async (id: string) => {
 export const createAdminUser = async (data: { email: string; password: string; first_name?: string; last_name?: string }) => {
   const r = await call<{ data: AdminUser }>("POST", "/api/admin/users/admin", data);
   return r.data;
+};
+
+export interface AdminPermissionGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: Record<string, any>;
+  is_default: boolean;
+  user_count: number;
+  users?: AdminUser[];
+}
+
+export const fetchPermissionGroups = async () => {
+  const r = await call<{ data: AdminPermissionGroup[] }>("GET", "/api/admin/permissions");
+  return r.data;
+};
+
+export const fetchPermissionGroup = async (id: string) => {
+  const r = await call<{ data: AdminPermissionGroup }>("GET", `/api/admin/permissions/${id}`);
+  return r.data;
+};
+
+export const assignUserPermissionGroup = async (userId: string, groupId: string) => {
+  const r = await call<{ success: boolean }>("POST", "/api/admin/permissions/assign", { user_id: userId, group_id: groupId });
+  return r;
+};
+
+export const unassignUserPermissionGroup = async (userId: string, groupId: string) => {
+  const r = await call<{ success: boolean }>("DELETE", "/api/admin/permissions/assign", { user_id: userId, group_id: groupId });
+  return r;
 };
 
 // ── Products ─────────────────────────────────────────────────────────────────
@@ -150,5 +202,249 @@ export interface AdminTransaction {
 
 export const fetchTransactions = async () => {
   const r = await call<{ data: AdminTransaction[] }>("GET", "/api/admin/transactions");
+  return r.data;
+};
+
+// ── Analytics
+export const fetchCategoryAnalytics = async () => {
+  const r = await call<{ data: any[] }>("GET", "/api/admin/analytics/categories");
+  return r.data;
+};
+
+export const fetchTopProducts = async () => {
+  const r = await call<{ data: any[] }>("GET", "/api/admin/analytics/top-products");
+  return r.data;
+};
+
+export const fetchSalesReport = async (start_date?: string, end_date?: string) => {
+  const qs = new URLSearchParams({ ...(start_date ? { start_date } : {}), ...(end_date ? { end_date } : {}) }).toString();
+  const r = await call<{ data: any[] }>("GET", `/api/admin/reports/sales${qs ? `?${qs}` : ''}`);
+  return r.data;
+};
+
+// ── Notifications (admin)
+export const fetchNotifications = async (unreadOnly = false) => {
+  const r = await call<{ data: any[] }>("GET", `/api/admin/notifications${unreadOnly ? '?unread_only=true' : ''}`);
+  return r.data;
+};
+
+export const fetchUnreadCount = async () => {
+  const r = await call<{ data: { count: number } }>("GET", "/api/admin/notifications/unread-count");
+  return r.data.count;
+};
+
+export const createNotification = async (payload: { title: string; body?: string; type?: string; meta?: any }) => {
+  const r = await call<{ data: any }>("POST", "/api/admin/notifications", payload);
+  return r.data;
+};
+
+export const markNotificationRead = async (id: string) => {
+  await call("PATCH", `/api/admin/notifications/${id}/read`);
+};
+
+export const markAllNotificationsRead = async () => {
+  await call("PATCH", `/api/admin/notifications/mark-all-read`);
+};
+
+export const archiveNotification = async (id: string) => {
+  await call("PATCH", `/api/admin/notifications/${id}/archive`);
+};
+
+export const deleteNotification = async (id: string) => {
+  await call("DELETE", `/api/admin/notifications/${id}`);
+};
+
+// ── FAQ
+export const fetchFaqs = async () => {
+  const r = await call<{ data: any[] }>("GET", "/api/admin/faqs");
+  return r.data;
+};
+
+export const createFaq = async (payload: { question: string; answer: string; is_active?: boolean }) => {
+  const r = await call<{ data: any }>("POST", "/api/admin/faqs", payload);
+  return r.data;
+};
+
+export const updateFaq = async (id: string, payload: { question: string; answer: string; is_active?: boolean }) => {
+  await call("PUT", `/api/admin/faqs/${id}`, payload);
+};
+
+export const deleteFaqClient = async (id: string) => {
+  await call("DELETE", `/api/admin/faqs/${id}`);
+};
+
+// ── Reviews
+export const fetchReviews = async (opts: { product_id?: string; approved?: boolean } = {}) => {
+  const qs = new URLSearchParams({ ...(opts.product_id ? { product_id: opts.product_id } : {}), ...(opts.approved !== undefined ? { approved: String(opts.approved) } : {}) }).toString();
+  const r = await call<{ data: any[] }>("GET", `/api/admin/reviews${qs ? `?${qs}` : ''}`);
+  return r.data;
+};
+
+export const approveReview = async (id: string, approve = true) => {
+  await call("PUT", `/api/admin/reviews/${id}/approve`, { approve });
+};
+
+export const deleteReview = async (id: string) => {
+  await call("DELETE", `/api/admin/reviews/${id}`);
+};
+
+// ── Newsletter
+export const subscribeNewsletter = async (payload: { email: string; name?: string }) => {
+  const r = await call<{ data: any }>("POST", "/api/newsletter/subscribe", payload);
+  return r.data;
+};
+
+export const fetchSubscribers = async () => {
+  const r = await call<{ data: any[] }>("GET", "/api/admin/newsletter/subscribers");
+  return r.data;
+};
+
+export const unsubscribeSubscriber = async (id: string) => {
+  await call("PATCH", `/api/admin/newsletter/subscribers/${id}/unsubscribe`);
+};
+
+export const deleteSubscriber = async (id: string) => {
+  await call("DELETE", `/api/admin/newsletter/subscribers/${id}`);
+};
+
+// ── Categories (admin) ───────────────────────────────────────────────────────
+export interface AdminCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  image_url?: string | null;
+  is_active?: boolean;
+}
+
+export const fetchCategories = async () => {
+  const r = await call<{ data: AdminCategory[] }>("GET", "/api/categories");
+  return r.data;
+};
+
+export const createCategory = async (payload: { name: string; description?: string; image_url?: string }) => {
+  const r = await call<{ data: AdminCategory }>("POST", "/api/categories", payload);
+  return r.data;
+};
+
+export const updateCategory = async (id: string, payload: { name?: string; description?: string; image_url?: string; is_active?: boolean }) => {
+  const r = await call<{ data: AdminCategory }>("PUT", `/api/categories/${id}`, payload);
+  return r.data;
+};
+
+export const deleteCategory = async (id: string) => {
+  await call("DELETE", `/api/categories/${id}`);
+};
+
+// ── Banners (admin)
+export interface AdminBanner {
+  id: string;
+  title?: string | null;
+  caption?: string | null;
+  image_url?: string | null;
+  link?: string | null;
+  location?: string;
+  sort_order?: number;
+  is_active?: boolean;
+}
+
+export const fetchBanners = async () => {
+  const r = await call<{ data: AdminBanner[] }>("GET", "/api/admin/banners");
+  return r.data;
+};
+
+export const createBanner = async (payload: Partial<AdminBanner>) => {
+  const r = await call<{ data: AdminBanner }>("POST", "/api/admin/banners", payload);
+  return r.data;
+};
+
+export const updateBanner = async (id: string, payload: Partial<AdminBanner>) => {
+  const r = await call<{ data: AdminBanner }>("PUT", `/api/admin/banners/${id}`, payload);
+  return r.data;
+};
+
+export const deleteBanner = async (id: string) => {
+  await call("DELETE", `/api/admin/banners/${id}`);
+};
+
+// ── Coupons (admin) ───────────────────────────────────────────────────────
+export interface AdminCoupon {
+  id: string;
+  code: string;
+  description?: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  max_uses: number;
+  uses: number;
+  expires_at?: string | null;
+  is_active: boolean;
+}
+
+export const fetchCoupons = async () => {
+  const r = await call<{ data: AdminCoupon[] }>("GET", "/api/admin/coupons");
+  return r.data;
+};
+
+export const createCoupon = async (payload: Partial<AdminCoupon> & { code: string }) => {
+  const r = await call<{ data: AdminCoupon }>("POST", "/api/admin/coupons", payload);
+  return r.data;
+};
+
+export const updateCoupon = async (id: string, payload: Partial<AdminCoupon>) => {
+  const r = await call<{ data: AdminCoupon }>("PUT", `/api/admin/coupons/${id}`, payload);
+  return r.data;
+};
+
+export const deleteCoupon = async (id: string) => {
+  await call("DELETE", `/api/admin/coupons/${id}`);
+};
+
+// ── Inventory (admin) ───────────────────────────────────────────────────────
+export const fetchAdminInventory = async (params?: { low_stock_only?: boolean }) => {
+  const qs = new URLSearchParams(params as any).toString();
+  const r = await call<{ data: any[] }>("GET", `/api/admin/inventory${qs ? `?${qs}` : ""}`);
+  return r.data;
+};
+
+export const updateInventory = async (productId: string, quantity_in_stock: number) => {
+  const r = await call<{ data: any }>("PUT", `/api/admin/inventory/${productId}`, { quantity_in_stock });
+  return r.data;
+};
+
+// ── Media (admin) ───────────────────────────────────────────────────────────
+export const fetchMedia = async (params?: { search?: string; limit?: number; offset?: number }) => {
+  const qs = new URLSearchParams(params as any).toString();
+  const res = await fetch(`${API_BASE}/api/media${qs ? `?${qs}` : ""}`, { headers: { ...authHeaders() } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
+  return data.data as any[];
+};
+
+export const uploadMedia = async (file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE}/api/media/upload`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || data?.message || "Upload failed");
+  return data.data;
+};
+
+export const addMediaUrl = async (payload: { url: string; file_name?: string; media_type?: string; alt_text?: string; category?: string }) => {
+  const r = await call<{ data: any }>("POST", "/api/media/add-url", payload);
+  return r.data;
+};
+
+// ── Payment config ──────────────────────────────────────────────────────────
+export const fetchPaymentConfig = async () => {
+  const r = await call<{ data: any }>("GET", "/api/admin/payment-config");
+  return r.data;
+};
+
+export const updatePaymentConfig = async (cfg: any) => {
+  const r = await call<{ data: any }>("PUT", "/api/admin/payment-config", cfg);
   return r.data;
 };

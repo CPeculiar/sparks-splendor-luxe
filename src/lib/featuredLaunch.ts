@@ -55,11 +55,11 @@ export function useFeaturedLaunch() {
 
 // ── Admin API helpers ────────────────────────────────────────────────────────
 
-function authHeaders() {
+function authHeaders(): Record<string, string> {
   const t = getAuthToken();
-  return t
-    ? { Authorization: `Bearer ${t}`, "Content-Type": "application/json" }
-    : { "Content-Type": "application/json" };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (t) headers.Authorization = `Bearer ${t}`;
+  return headers;
 }
 
 async function adminCall<T>(method: string, path: string, body?: unknown): Promise<T> {

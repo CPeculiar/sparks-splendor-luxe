@@ -20,8 +20,9 @@ export interface Product {
   badge?: "New" | "Bestseller" | "Limited";
 }
 
-const img = (n: number) => `/gallery/img-${String(n).padStart(2, "0")}.jpg`;
-const couple = (n: number) => `/gallery/couple-${String(n).padStart(2, "0")}.jpg`;
+const CLOUD = "https://res.cloudinary.com/dm6a3bf53/image/upload/f_auto,q_auto";
+const img = (n: number) => `${CLOUD}/sparks-splendor/gallery/img-${String(n).padStart(2, "0")}.jpg`;
+const couple = (n: number) => `${CLOUD}/sparks-splendor/gallery/couple-${String(n).padStart(2, "0")}.jpg`;
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
