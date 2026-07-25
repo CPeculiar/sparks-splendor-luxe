@@ -1,6 +1,6 @@
-﻿import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Eye, EyeOff, Camera } from "lucide-react";
+import { Eye, EyeOff, Camera, Mail } from "lucide-react";
 import {
   getCurrentUser,
   getUserOrders,
@@ -13,8 +13,14 @@ import {
   googleLogin,
   forgotPassword,
   resetPassword,
+  resendVerificationEmail,
+  getUserAddresses,
+  createAddress,
+  updateAddress,
+  deleteAddress,
   AuthUser,
   UserOrder,
+  UserAddress,
 } from "@/lib/auth";
 import { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET } from "@/lib/cloudinary";
 
@@ -52,7 +58,7 @@ function loadGoogleScript(): Promise<void> {
 
 function AccountPage() {
   const search = Route.useSearch();
-  const [mode, setMode] = useState<"signin" | "signup" | "forgot" | "reset">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "verify-email" | "forgot" | "reset">("signin");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -73,8 +79,30 @@ function AccountPage() {
   const [orders, setOrders] = useState<UserOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [addressesError, setAddressesError] = useState<string | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressForm, setAddressForm] = useState({
+    type: "shipping",
+    first_name: "",
+    last_name: "",
+    phone: "",
+    street: "",
+    city: "",
+    state: "",
+    postal_code: "",
+    country: "Nigeria",
+    is_default: false,
+  });
+  const [addressSubmitting, setAddressSubmitting] = useState(false);
 
-  const fmt = (value: string | number) => `₦${Number(value).toLocaleString("en-NG")}`;
+  const fmt = (value: string | number) => `?${Number(value).toLocaleString("en-NG")}`;
 
   const loadOrders = async () => {
     setOrdersLoading(true);
@@ -89,6 +117,19 @@ function AccountPage() {
     }
   };
 
+  const loadAddresses = async () => {
+    setAddressesLoading(true);
+    setAddressesError(null);
+    try {
+      const data = await getUserAddresses();
+      setAddresses(data.data || []);
+    } catch (err) {
+      setAddressesError(err instanceof Error ? err.message : "Unable to load addresses");
+    } finally {
+      setAddressesLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (search.reset_token) {
       setMode("reset");
@@ -100,7 +141,7 @@ function AccountPage() {
       setUser(existingUser);
       hydrateForm(existingUser);
       void loadOrders();
-      // Always re-fetch to get latest data from server (including Google profile_image)
+      void loadAddresses();
       void loadUser().then((fresh) => { setUser(fresh); hydrateForm(fresh); }).catch(() => {});
       return;
     }
@@ -111,6 +152,7 @@ function AccountPage() {
           setUser(fetched);
           hydrateForm(fetched);
           void loadOrders();
+          void loadAddresses();
         })
         .catch(() => {
           logout();
@@ -178,10 +220,21 @@ function AccountPage() {
     setStatus(null);
     setBusy(true);
     try {
-      const registered = await register(email, password, firstName, lastName, phone);
-      setUser(registered);
-      setMode("signin");
-      setStatus("Account created successfully.");
+      const result = await register(email, password, firstName, lastName, phone);
+      if ('requiresVerification' in result && result.requiresVerification) {
+        setVerificationEmail(result.email || email);
+        setMode("verify-email");
+        setStatus(null);
+        setEmail("");
+        setPassword("");
+        setFirstName("");
+        setLastName("");
+        setPhone("");
+      } else {
+        setUser(result as AuthUser);
+        setMode("signin");
+        setStatus("Account created successfully.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
@@ -227,7 +280,8 @@ function AccountPage() {
     event.preventDefault();
     setError(null);
     setStatus(null);
-    setBusy(true);
+    setProfileToast(null);
+    setProfileSaving(true);
     try {
       const updated = await updateProfile({
         first_name: firstName,
@@ -237,17 +291,17 @@ function AccountPage() {
       });
       setUser(updated);
       hydrateForm(updated);
-      setStatus("Profile updated.");
+      showToast("success", "Profile updated successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed.");
+      showToast("error", err instanceof Error ? err.message : "Update failed.");
     } finally {
-      setBusy(false);
+      setProfileSaving(false);
     }
   };
 
   const handleAvatarUpload = async (file: File) => {
     if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET) return;
-    setBusy(true);
+    setProfileSaving(true);
     setError(null);
     try {
       const form = new FormData();
@@ -259,22 +313,128 @@ function AccountPage() {
       if (!res.ok) throw new Error(data.error?.message || "Upload failed");
       const url: string = data.secure_url;
       setProfileImage(url);
-      // Save immediately
       const updated = await updateProfile({ first_name: firstName, last_name: lastName, phone, profile_image: url });
       setUser(updated);
       hydrateForm(updated);
-      setStatus("Profile photo updated.");
+      showToast("success", "Profile photo updated.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
+      showToast("error", err instanceof Error ? err.message : "Upload failed.");
     } finally {
-      setBusy(false);
+      setProfileSaving(false);
     }
   };
 
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileToast, setProfileToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<"profile" | "addresses" | "orders">("profile");
+
+  function showToast(type: "success" | "error", msg: string) {
+    setProfileToast({ type, msg });
+    setTimeout(() => setProfileToast(null), 4000);
+  }
+
+  const clearFormMessages = useCallback(() => {
+    setError(null);
+    setStatus(null);
+  }, []);
+
   const handleLogout = () => {
+    // Cancel Google Sign-In button rendering if it exists
+    if (window.google?.accounts?.id) {
+      try {
+        window.google.accounts.id.cancel();
+      } catch (e) {
+        console.warn("Could not cancel Google Sign-In:", e);
+      }
+    }
+    
     logout();
     setUser(null);
-    setStatus("Signed out successfully.");
+    setEmail("");
+    setPassword("");
+    setFirstName("");
+    setLastName("");
+    setPhone("");
+    setProfileImage("");
+    setNewPassword("");
+    setStatus(null);
+    setError(null);
+    setProfileToast(null);
+    setShowAddressForm(false);
+    setEditingAddressId(null);
+  };
+
+  const handleResendVerification = async () => {
+    setResendError(null);
+    setResendSuccess(false);
+    setResendLoading(true);
+    try {
+      await resendVerificationEmail(verificationEmail);
+      setResendSuccess(true);
+      setTimeout(() => setResendSuccess(false), 5000);
+    } catch (err) {
+      setResendError(err instanceof Error ? err.message : "Failed to resend verification email.");
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const handleAddressSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddressSubmitting(true);
+    try {
+      if (editingAddressId) {
+        await updateAddress(editingAddressId, addressForm);
+      } else {
+        await createAddress(addressForm);
+      }
+      await loadAddresses();
+      setShowAddressForm(false);
+      setEditingAddressId(null);
+      setAddressForm({
+        type: "shipping",
+        first_name: "",
+        last_name: "",
+        phone: "",
+        street: "",
+        city: "",
+        state: "",
+        postal_code: "",
+        country: "Nigeria",
+        is_default: false,
+      });
+    } catch (err) {
+      setAddressesError(err instanceof Error ? err.message : "Failed to save address.");
+    } finally {
+      setAddressSubmitting(false);
+    }
+  };
+
+  const handleEditAddress = (address: UserAddress) => {
+    setEditingAddressId(address.id);
+    setAddressForm({
+      type: address.type,
+      first_name: address.first_name || "",
+      last_name: address.last_name || "",
+      phone: address.phone || "",
+      street: address.street,
+      city: address.city,
+      state: address.state,
+      postal_code: address.postal_code,
+      country: address.country,
+      is_default: address.is_default,
+    });
+    setShowAddressForm(true);
+  };
+
+  const handleDeleteAddress = async (addressId: string) => {
+    if (!confirm("Are you sure you want to delete this address?")) return;
+    try {
+      await deleteAddress(addressId);
+      await loadAddresses();
+    } catch (err) {
+      setAddressesError(err instanceof Error ? err.message : "Failed to delete address.");
+    }
   };
 
   function StatusBadge({ status }: { status: string }) {
@@ -341,33 +501,30 @@ function AccountPage() {
 
   if (user) {
     return (
-      <section className="min-h-[80vh] grid lg:grid-cols-2">
-        <div className="hidden lg:block relative">
-          <img src="/gallery/img-40.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-onyx/40" />
-          <div className="absolute bottom-12 left-12 right-12 text-cream">
-            <p className="text-eyebrow text-gold">Member Profile</p>
-            <h2 className="font-serif-luxe text-5xl mt-4 leading-tight">Your Sparks & Splendour Account</h2>
-            <p className="mt-4 max-w-md text-cream/80">Manage your profile, password, and checkout details securely.</p>
+      <section className="min-h-[80vh] bg-background px-4 py-8">
+        <div className="mx-auto max-w-6xl">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="font-serif-luxe text-4xl sm:text-5xl mb-2">My Account</h1>
+            <p className="text-muted-foreground">Manage your profile, addresses, and orders</p>
           </div>
-        </div>
 
-        <div className="flex items-center justify-center px-6 py-16">
-          <div className="w-full max-w-md space-y-6">
-            {/* Avatar */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="relative group">
-                <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-border bg-muted flex items-center justify-center">
+          {/* Profile Card Header */}
+          <div className="rounded-2xl border border-border bg-onyx/95 text-cream p-6 sm:p-8 mb-8 shadow-lg">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+              {/* Avatar */}
+              <div className="relative group flex-shrink-0">
+                <div className="h-24 w-24 rounded-full overflow-hidden border-2 border-gold bg-muted flex items-center justify-center shadow-md">
                   {profileImage ? (
                     <img src={profileImage} alt="Profile" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="text-2xl font-display text-muted-foreground">
+                    <span className="text-3xl font-display text-cream/60">
                       {firstName ? firstName[0].toUpperCase() : (email ? email[0].toUpperCase() : "?")}
                     </span>
                   )}
                 </div>
-                <label className="absolute inset-0 rounded-full flex items-center justify-center bg-onyx/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                  <Camera className="h-5 w-5 text-cream" />
+                <label className="absolute inset-0 rounded-full flex items-center justify-center bg-onyx/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera className="h-6 w-6 text-gold" />
                   <input
                     type="file"
                     accept="image/*"
@@ -376,117 +533,278 @@ function AccountPage() {
                   />
                 </label>
               </div>
-              <div className="text-center">
-                <p className="text-eyebrow">Welcome back</p>
-                <h1 className="font-display text-4xl mt-1">Your Profile</h1>
-                <p className="text-xs text-muted-foreground mt-1">Hover photo to change</p>
-              </div>
-            </div>
 
-            {renderStatus()}
-            {renderError()}
-
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="grid gap-4">
-                <div>
-                  <label className="text-eyebrow block mb-2">Email</label>
-                  <input value={email} readOnly className="w-full border border-border bg-muted px-4 py-3 text-sm text-muted-foreground" />
-                </div>
-                <div>
-                  <label className="text-eyebrow block mb-2">First name</label>
-                  <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
-                </div>
-                <div>
-                  <label className="text-eyebrow block mb-2">Last name</label>
-                  <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
-                </div>
-                <div>
-                  <label className="text-eyebrow block mb-2">Phone</label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+234 800 000 0000"
-                    className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold"
-                  />
+              {/* User Info */}
+              <div className="flex-1">
+                <p className="text-eyebrow text-gold uppercase tracking-[0.3em] mb-1">Welcome back</p>
+                <h2 className="text-3xl font-display mb-2">{firstName && lastName ? `${firstName} ${lastName}` : email}</h2>
+                <p className="text-cream/70 text-sm mb-3">{email}</p>
+                <div className="flex flex-wrap gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-gold mb-1">Account Type</p>
+                    <p className="text-sm font-semibold">{user.role === "customer" ? "Customer" : user.role === "admin" ? "Admin" : "Super Admin"}</p>
+                  </div>
+                  {phone && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-gold mb-1">Phone</p>
+                      <p className="text-sm font-semibold">{phone}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <button type="submit" disabled={busy} className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60">
-                Save Profile
+              {/* Sign Out */}
+              <button onClick={handleLogout} className="w-full sm:w-auto px-6 py-3 rounded-lg border border-gold text-gold hover:bg-gold hover:text-onyx transition-all font-semibold text-sm uppercase tracking-[0.2em]">
+                Sign Out
               </button>
-            </form>
+            </div>
+          </div>
 
-            <button onClick={handleLogout} className="w-full border border-border py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:border-gold transition-colors">
-              Sign Out
-            </button>
+          {/* Tab Navigation */}
+          <div className="flex gap-1 mb-8 border-b border-border pb-0 overflow-x-auto">
+            {(['profile', 'addresses', 'orders'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 sm:px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === tab
+                    ? 'border-gold text-gold'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab === 'profile' ? 'Profile' : tab === 'addresses' ? 'Addresses' : 'Orders'}
+              </button>
+            ))}
+          </div>
 
-            <div className="mt-12">
-              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-                <div>
-                  <p className="text-eyebrow">Recent orders</p>
-                  <p className="text-sm text-muted-foreground">Your confirmed payments and order status history.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {ordersLoading && <p className="text-xs uppercase text-muted-foreground">Loading orders…</p>}
-                  <Link to="/account/orders" className="inline-flex items-center justify-center rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-foreground hover:border-gold transition-colors">
-                    View all orders
-                  </Link>
+          {/* Content Area */}
+          <div className="w-full">
+            {/* PROFILE TAB */}
+            {activeTab === 'profile' && (
+              <div className="space-y-6">
+                {profileToast && (
+                  <div className={`rounded-lg border px-4 py-3 text-sm ${profileToast.type === "success" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}>
+                    {profileToast.msg}
+                  </div>
+                )}
+                
+                {renderStatus()}
+                {renderError()}
+
+                <div className="rounded-xl border border-border bg-background p-6 sm:p-8">
+                  <h3 className="text-lg font-semibold mb-6">Profile Information</h3>
+                  <form onSubmit={handleUpdateProfile} className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="text-eyebrow block mb-2">Email</label>
+                        <input value={email} readOnly className="w-full rounded-lg border border-border bg-muted px-4 py-2 text-sm text-muted-foreground cursor-not-allowed" />
+                      </div>
+                      <div>
+                        <label className="text-eyebrow block mb-2">First Name</label>
+                        <input value={firstName} onChange={(e) => { setFirstName(e.target.value); clearFormMessages(); }} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                      </div>
+                      <div>
+                        <label className="text-eyebrow block mb-2">Last Name</label>
+                        <input value={lastName} onChange={(e) => { setLastName(e.target.value); clearFormMessages(); }} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                      </div>
+                      <div>
+                        <label className="text-eyebrow block mb-2">Phone</label>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => { setPhone(e.target.value); clearFormMessages(); }}
+                          placeholder="+234 800 000 0000"
+                          className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" disabled={profileSaving} className="w-full sm:w-auto px-6 py-2 bg-onyx text-cream rounded-lg text-sm font-semibold uppercase tracking-[0.2em] hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                      {profileSaving ? "Saving..." : "Save Changes"}
+                    </button>
+                  </form>
                 </div>
               </div>
+            )}
 
-              {ordersError && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{ordersError}</p>}
-              {!ordersLoading && !orders.length && !ordersError && (
-                <p className="text-sm text-muted-foreground">No orders yet. Your completed purchases will appear here.</p>
-              )}
+            {/* ADDRESSES TAB */}
+            {activeTab === 'addresses' && (
+              <div className="space-y-6">
+                {addressesError && <p className="text-sm text-destructive bg-destructive/10 p-4 rounded-lg">{addressesError}</p>}
 
-              {!ordersLoading && orders.length > 0 && (
-                <div className="space-y-4">
-                  {orders.map((order) => (
-                    <div key={order.id} className="rounded-xl border border-border bg-secondary/10 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-semibold">Saved Addresses</h3>
+                  <button
+                    onClick={() => { setEditingAddressId(null); setAddressForm({ type: "shipping", first_name: "", last_name: "", phone: "", street: "", city: "", state: "", postal_code: "", country: "Nigeria", is_default: false }); setShowAddressForm(!showAddressForm); }}
+                    className="px-4 py-2 rounded-lg border border-gold text-gold hover:bg-gold hover:text-onyx transition-colors text-sm font-semibold uppercase tracking-[0.2em]"
+                  >
+                    {showAddressForm ? "Cancel" : "Add Address"}
+                  </button>
+                </div>
+
+                {showAddressForm && (
+                  <div className="rounded-xl border border-border bg-background p-6 sm:p-8">
+                    <h4 className="font-semibold mb-4">{editingAddressId ? "Edit Address" : "Add New Address"}</h4>
+                    <form onSubmit={handleAddressSubmit} className="space-y-4">
+                      <div className="grid gap-4">
                         <div>
-                          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Order</p>
-                          <p className="font-mono text-sm">{order.order_number}</p>
+                          <label className="text-eyebrow block mb-2">Type</label>
+                          <select
+                            value={addressForm.type}
+                            onChange={(e) => setAddressForm({ ...addressForm, type: e.target.value })}
+                            className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold"
+                          >
+                            <option value="shipping">Shipping</option>
+                            <option value="billing">Billing</option>
+                          </select>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid gap-4 sm:grid-cols-2">
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Payment</p>
+                            <label className="text-eyebrow block mb-2">First Name</label>
+                            <input value={addressForm.first_name} onChange={(e) => setAddressForm({ ...addressForm, first_name: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                          </div>
+                          <div>
+                            <label className="text-eyebrow block mb-2">Last Name</label>
+                            <input value={addressForm.last_name} onChange={(e) => setAddressForm({ ...addressForm, last_name: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-eyebrow block mb-2">Phone</label>
+                          <input type="tel" value={addressForm.phone} onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                        </div>
+                        <div>
+                          <label className="text-eyebrow block mb-2">Street Address *</label>
+                          <input required value={addressForm.street} onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="text-eyebrow block mb-2">City *</label>
+                            <input required value={addressForm.city} onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                          </div>
+                          <div>
+                            <label className="text-eyebrow block mb-2">State *</label>
+                            <input required value={addressForm.state} onChange={(e) => setAddressForm({ ...addressForm, state: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                          </div>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <label className="text-eyebrow block mb-2">Postal Code *</label>
+                            <input required value={addressForm.postal_code} onChange={(e) => setAddressForm({ ...addressForm, postal_code: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                          </div>
+                          <div>
+                            <label className="text-eyebrow block mb-2">Country *</label>
+                            <input required value={addressForm.country} onChange={(e) => setAddressForm({ ...addressForm, country: e.target.value })} className="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm focus:outline-none focus:border-gold" />
+                          </div>
+                        </div>
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="checkbox" checked={addressForm.is_default} onChange={(e) => setAddressForm({ ...addressForm, is_default: e.target.checked })} className="w-4 h-4 rounded border-border" />
+                          <span>Set as default address</span>
+                        </label>
+                      </div>
+                      <button type="submit" disabled={addressSubmitting} className="w-full sm:w-auto px-6 py-2 bg-onyx text-cream rounded-lg text-sm font-semibold uppercase tracking-[0.2em] hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                        {addressSubmitting ? "Saving..." : editingAddressId ? "Update Address" : "Add Address"}
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {!addressesLoading && addresses.length === 0 && !showAddressForm && (
+                  <p className="text-center text-muted-foreground py-8">No saved addresses yet</p>
+                )}
+
+                {addresses.length > 0 && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {addresses.map((addr) => (
+                      <div key={addr.id} className="rounded-xl border border-border bg-background p-5">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="text-sm font-semibold capitalize mb-1">{addr.type === "billing" ? "Billing" : "Shipping"} Address</p>
+                            {addr.is_default && <span className="text-[10px] bg-gold/20 text-gold px-2 py-1 rounded">DEFAULT</span>}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleEditAddress(addr)}
+                              className="text-xs text-gold hover:underline"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAddress(addr.id)}
+                              className="text-xs text-destructive hover:underline"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        {addr.first_name && <p className="text-xs text-muted-foreground mb-2">{addr.first_name} {addr.last_name}</p>}
+                        <p className="text-xs text-muted-foreground">{addr.street}</p>
+                        <p className="text-xs text-muted-foreground">{addr.city}, {addr.state} {addr.postal_code}</p>
+                        <p className="text-xs text-muted-foreground">{addr.country}</p>
+                        {addr.phone && <p className="text-xs text-muted-foreground mt-2">{addr.phone}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ORDERS TAB */}
+            {activeTab === 'orders' && (
+              <div className="space-y-6">
+                {ordersError && <p className="text-sm text-destructive bg-destructive/10 p-4 rounded-lg">{ordersError}</p>}
+
+                {!ordersLoading && !orders.length && !ordersError && (
+                  <p className="text-center text-muted-foreground py-8">No orders yet</p>
+                )}
+
+                {!ordersLoading && orders.length > 0 && (
+                  <div className="space-y-4">
+                    {orders.map((order) => (
+                      <div key={order.id} className="rounded-xl border border-border bg-background p-5">
+                        <div className="grid gap-4 sm:grid-cols-4 mb-4">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Order</p>
+                            <p className="font-mono text-sm font-semibold">{order.order_number}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Payment</p>
                             <StatusBadge status={order.payment_status} />
                           </div>
                           <div>
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Order</p>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Status</p>
                             <StatusBadge status={order.order_status} />
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Total</p>
-                          <p className="font-medium">{fmt(order.total)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
-                        <p>Date: {new Date(order.created_at).toLocaleDateString()}</p>
-                        {order.items?.length ? (
-                          <div className="mt-3">
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground mb-2">Items</p>
-                            <ul className="space-y-1 text-sm">
-                              {order.items.slice(0, 3).map((item, index) => (
-                                <li key={index}>
-                                  {item.product_name} × {item.quantity}
-                                </li>
-                              ))}
-                              {order.items.length > 3 && (
-                                <li className="text-xs text-muted-foreground">+ {order.items.length - 3} more items</li>
-                              )}
-                            </ul>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-1">Total</p>
+                            <p className="font-semibold">{fmt(order.total)}</p>
                           </div>
-                        ) : null}
+                        </div>
+                        <div className="border-t border-border pt-4">
+                          <p className="text-xs text-muted-foreground mb-2">Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                          {order.items?.length ? (
+                            <div>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-2">Items</p>
+                              <ul className="text-xs space-y-1">
+                                {order.items.slice(0, 3).map((item, index) => (
+                                  <li key={index}>{item.product_name} × {item.quantity}</li>
+                                ))}
+                                {order.items.length > 3 && (
+                                  <li className="text-muted-foreground">+ {order.items.length - 3} more items</li>
+                                )}
+                              </ul>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                )}
+
+                {ordersLoading && (
+                  <p className="text-center text-muted-foreground py-8">Loading orders...</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -496,23 +814,76 @@ function AccountPage() {
   return (
     <section className="min-h-[80vh] grid lg:grid-cols-2">
       <div className="hidden lg:block relative">
-        <img src="/gallery/img-40.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <img src="/gallery-compressed/prom_suits/Prom_classic_Ric_Hassani_black_velvet_4.jpg" alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-onyx/40" />
         <div className="absolute bottom-12 left-12 right-12 text-cream">
-          <p className="text-eyebrow text-gold">Members Only</p>
-          <h2 className="font-serif-luxe text-5xl mt-4 leading-tight">The Sparks Society</h2>
-          <p className="mt-4 max-w-md text-cream/80">Create an account or sign in to continue shopping and checkout with your local backend credentials.</p>
+          <p className="text-eyebrow text-gold">{mode === "verify-email" ? "Email Verification" : "Members Only"}</p>
+          <h2 className="font-serif-luxe text-5xl mt-4 leading-tight">{mode === "verify-email" ? "Verify Your Email" : "The Sparks Society"}</h2>
+          <p className="mt-4 max-w-md text-cream/80">
+            {mode === "verify-email"
+              ? "Check your email for a verification link to activate your account."
+              : "Create an account or sign in to continue shopping and checkout with your local backend credentials."}
+          </p>
         </div>
       </div>
 
       <div className="flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
-          <p className="text-eyebrow text-center">{mode === "signin" ? "Welcome Back" : mode === "signup" ? "Join the House" : mode === "forgot" ? "Forgot Password" : "Reset Password"}</p>
-          <h1 className="font-display text-4xl md:text-5xl text-center mt-3">
-            {mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : mode === "forgot" ? "Reset Your Password" : "Enter New Password"}
-          </h1>
+          {mode === "verify-email" ? (
+            <>
+              <div className="flex justify-center mb-6">
+                <div className="h-16 w-16 rounded-full bg-gold/10 flex items-center justify-center">
+                  <Mail className="h-8 w-8 text-gold" />
+                </div>
+              </div>
+              <p className="text-eyebrow text-center">Check Your Email</p>
+              <h1 className="font-display text-4xl md:text-5xl text-center mt-3">Verify Your Account</h1>
 
-          {(mode === "signin" || mode === "signup") && (
+              {resendSuccess && (
+                <p className="mt-6 text-sm text-success bg-success/10 p-3 rounded text-center">
+                  Verification email sent successfully!
+                </p>
+              )}
+              {resendError && (
+                <p className="mt-6 text-sm text-destructive bg-destructive/10 p-3 rounded text-center">
+                  {resendError}
+                </p>
+              )}
+
+              <div className="mt-8 space-y-4">
+                <p className="text-center text-sm text-muted-foreground">
+                  We sent a verification link to <strong>{verificationEmail}</strong>
+                </p>
+                <p className="text-center text-sm text-muted-foreground">
+                  Click the link in your email to verify your account. The link expires in 24 hours.
+                </p>
+
+                <div className="pt-4 space-y-3">
+                  <button
+                    onClick={handleResendVerification}
+                    disabled={resendLoading}
+                    className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60"
+                  >
+                    {resendLoading ? "Sending..." : "Resend Verification Email"}
+                  </button>
+
+                  <button
+                    onClick={() => setMode("signin")}
+                    className="w-full border border-border py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:border-gold transition-colors"
+                  >
+                    Back to Sign In
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-eyebrow text-center">{mode === "signin" ? "Welcome Back" : mode === "signup" ? "Join the House" : mode === "forgot" ? "Forgot Password" : "Reset Password"}</p>
+              <h1 className="font-display text-4xl md:text-5xl text-center mt-3">
+                {mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : mode === "forgot" ? "Reset Your Password" : "Enter New Password"}
+              </h1>
+
+              {(mode === "signin" || mode === "signup") && (
             <div className="mt-8">
               {/* Google renders its own branded button into this div */}
               <div
@@ -566,11 +937,11 @@ function AccountPage() {
                 <div className="grid gap-4">
                   <div>
                     <label className="text-eyebrow block mb-2">First name</label>
-                    <input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold" />
+                    <input value={firstName} onChange={(e) => { setFirstName(e.target.value); clearFormMessages(); }} className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold" />
                   </div>
                   <div>
                     <label className="text-eyebrow block mb-2">Last name</label>
-                    <input value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold" />
+                    <input value={lastName} onChange={(e) => { setLastName(e.target.value); clearFormMessages(); }} className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold" />
                   </div>
                 </div>
               )}
@@ -581,7 +952,7 @@ function AccountPage() {
                   type="email"
                   required
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); clearFormMessages(); }}
                   className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold"
                 />
               </div>
@@ -594,7 +965,7 @@ function AccountPage() {
                       type={showPw ? "text" : "password"}
                       required
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setPassword(e.target.value); clearFormMessages(); }}
                       className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold"
                     />
                     <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
@@ -613,7 +984,7 @@ function AccountPage() {
               )}
 
               <button type="submit" disabled={busy} className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60">
-                {mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : "Request Reset"}
+                {mode === "signin" ? (busy ? "Signing in..." : "Sign In") : mode === "signup" ? (busy ? "Creating account..." : "Create Account") : (busy ? "Requesting..." : "Request Reset")}
               </button>
             </form>
           )}
@@ -627,8 +998,11 @@ function AccountPage() {
               {mode === "signin" ? "Create an account" : mode === "signup" ? "Sign in" : mode === "forgot" ? "Sign in" : "Sign in"}
             </button>
           </p>
+            </>
+          )}
         </div>
       </div>
     </section>
   );
 }
+

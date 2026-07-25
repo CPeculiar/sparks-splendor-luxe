@@ -56,7 +56,7 @@ const WHATSAPP_PHONE = "2348137037919";
 
 function CartPage() {
   const { items, subtotal, update, remove, count, clear } = useCart();
-  const { format, code, rate } = useCurrency();
+  const { format, code } = useCurrency();
   const navigate = Route.useNavigate();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -68,6 +68,10 @@ function CartPage() {
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState("");
   const [notes, setNotes] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount_value: number; discount_type: string; discount_amount: number } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
@@ -86,19 +90,51 @@ function CartPage() {
       setFirstName(user.first_name || "");
       setLastName(user.last_name || "");
       setPhone(user.phone || "");
-    } else if (!isAuthenticated()) {
-      // Redirect to login if not authenticated
-      navigate({ to: "/account" });
-      return;
     }
     loadPaystack().catch(() => {});
   }, []);
 
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    setValidatingCoupon(true);
+    setCouponError(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/coupons/validate/${couponCode.toUpperCase()}?subtotal=${subtotal}`, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setCouponError(data.message || "Invalid coupon code");
+        setAppliedCoupon(null);
+        return;
+      }
+
+      const data = await res.json();
+      setAppliedCoupon(data);
+      setCouponError(null);
+    } catch (e) {
+      setCouponError("Failed to validate coupon");
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
   const shippingFree = subtotal >= 500_000;
   const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 15_000;
-  const total = subtotal + shipping;
+  const discountAmount = appliedCoupon
+    ? appliedCoupon.discount_type === "percentage"
+      ? (subtotal * appliedCoupon.discount_value) / 100
+      : appliedCoupon.discount_value
+    : 0;
+  const total = subtotal - discountAmount + shipping;
 
-  const handleOrderSuccess = async (reference: string) => {
+  const createOrder = async () => {
     const token = getAuthToken();
     const orderItems = items.map((item) => ({
       product_id: item.product.id,
@@ -119,32 +155,91 @@ function CartPage() {
       postal_code: postalCode || null,
       country: country || "Not provided",
       notes: notes || null,
-      paystack_reference: reference,
       currency: code,
+      coupon_code: appliedCoupon?.code || null,
+      discount_amount: discountAmount,
       items: orderItems,
     };
 
-    let orderNumber: string | undefined;
+    const res = await fetch(`${API_BASE}/api/orders`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to create order");
+    }
+
+    const data = await res.json();
+    if (!data.data?.id) {
+      throw new Error("Order creation failed - no order ID returned");
+    }
+
+    return {
+      orderId: data.data.id,
+      orderNumber: data.data.order_number,
+      items: orderItems,
+    };
+  };
+
+  const getPaymentInfo = async (orderId: string) => {
+    const res = await fetch(`${API_BASE}/api/payments/initialize`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_id: orderId }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Payment initialization failed");
+    }
+
+    const data = await res.json();
+    if (!data.data?.amount || !data.data?.currency) {
+      throw new Error("Invalid payment data from backend");
+    }
+
+    return {
+      amount: data.data.amount,
+      currency: data.data.currency,
+      reference: data.data.reference,
+    };
+  };
+
+  const updateOrderWithPayment = async (orderId: string, reference: string) => {
+    const token = getAuthToken();
+    const res = await fetch(`${API_BASE}/api/orders/${orderId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        paystack_reference: reference,
+        status: "processing",
+      }),
+    });
+
+    if (!res.ok) {
+      console.error("Failed to update order with payment reference");
+    }
+  };
+
+  const handlePaymentSuccess = async (reference: string, orderInfo: { orderId: string; orderNumber?: string; items: any[] }) => {
     try {
-      const res = await fetch(`${API_BASE}/api/orders`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      orderNumber = data?.data?.order_number;
+      await updateOrderWithPayment(orderInfo.orderId, reference);
     } catch (err) {
-      console.error("Failed to save order to backend", err);
+      console.error("Failed to update order after payment:", err);
     }
 
     setSuccess({
       ref: reference,
       total,
-      orderNumber,
-      items: orderItems,
+      orderNumber: orderInfo.orderNumber,
+      items: orderInfo.items,
       customerName: `${firstName} ${lastName}`.trim() || email,
     });
     clear();
@@ -152,10 +247,6 @@ function CartPage() {
 
   const handlePay = async () => {
     setError(null);
-    if (!isAuthenticated()) {
-      setError("You must be signed in to checkout. Please sign in from your account page.");
-      return;
-    }
 
     const value = (emailRef.current?.value || email).trim();
     if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
@@ -170,19 +261,28 @@ function CartPage() {
     }
 
     setPaying(true);
+    let orderInfo: { orderId: string; orderNumber?: string; items: any[] } | null = null;
+
     try {
+      // 1. Create order first
+      orderInfo = await createOrder();
+
+      // 2. Get payment info from backend
+      const paymentInfo = await getPaymentInfo(orderInfo.orderId);
+
+      // 3. Load Paystack
       await loadPaystack();
-      if (!window.PaystackPop) throw new Error("Paystack failed to load.");
-      const isUSD = code === "USD";
-      const chargeAmount = isUSD
-        ? Math.round((total / rate) * 100)
-        : Math.round(total * 100);
+      if (!window.PaystackPop) {
+        throw new Error("Paystack failed to load.");
+      }
+
+      // 4. Setup Paystack with backend-provided amount
       const handler = window.PaystackPop.setup({
         key: PAYSTACK_KEY,
         email: value,
-        amount: chargeAmount,
-        currency: isUSD ? "USD" : "NGN",
-        ref: `SS-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+        amount: paymentInfo.amount,
+        currency: paymentInfo.currency,
+        ref: paymentInfo.reference,
         metadata: {
           custom_fields: [
             {
@@ -196,16 +296,21 @@ function CartPage() {
         },
         callback: (res) => {
           setPaying(false);
-          void handleOrderSuccess(res.reference);
+          if (orderInfo) {
+            void handlePaymentSuccess(res.reference, orderInfo);
+          }
         },
         onClose: () => {
           setPaying(false);
+          setError("Payment cancelled. Your order has been saved and is awaiting payment.");
         },
       });
       handler.openIframe();
     } catch (e) {
       setPaying(false);
-      setError(e instanceof Error ? e.message : "Payment could not be initiated.");
+      const errorMsg = e instanceof Error ? e.message : "Payment could not be initiated.";
+      setError(errorMsg);
+      console.error("Payment flow error:", e);
     }
   };
 
@@ -347,6 +452,12 @@ function CartPage() {
             <h2 className="font-display text-2xl">Order Summary</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{format(subtotal)}</span></div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-gold-deep">
+                  <span>{appliedCoupon.discount_type === "percentage" ? appliedCoupon.discount_value + "%" : "Fixed"} Discount</span>
+                  <span className="tabular-nums">-{format(discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
                 <span className="tabular-nums">{shipping === 0 ? <span className="text-gold-deep">Free</span> : format(shipping)}</span>
@@ -367,6 +478,48 @@ function CartPage() {
           </div>
 
           <div className="border border-border p-6 space-y-4">
+            <div>
+              <label htmlFor="coupon" className="text-eyebrow block mb-2">Coupon Code (Optional)</label>
+              <div className="flex gap-2">
+                <input
+                  id="coupon"
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => {
+                    setCouponCode(e.target.value.toUpperCase());
+                    setCouponError(null);
+                  }}
+                  placeholder="Enter code"
+                  disabled={appliedCoupon !== null}
+                  className="flex-1 border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold disabled:bg-muted"
+                />
+                <button
+                  onClick={handleValidateCoupon}
+                  disabled={validatingCoupon || appliedCoupon !== null || !couponCode.trim()}
+                  className="px-4 py-3 bg-gold text-onyx text-xs tracking-[0.25em] uppercase font-semibold hover:bg-gold/90 disabled:bg-muted disabled:text-muted-foreground transition-colors"
+                >
+                  {validatingCoupon ? "..." : "Apply"}
+                </button>
+              </div>
+              {appliedCoupon && (
+                <p className="text-[11px] text-gold-deep mt-2">✓ {appliedCoupon.message}</p>
+              )}
+              {couponError && (
+                <p className="text-[11px] text-destructive mt-2">{couponError}</p>
+              )}
+              {appliedCoupon && (
+                <button
+                  onClick={() => {
+                    setAppliedCoupon(null);
+                    setCouponCode("");
+                  }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground mt-2 underline"
+                >
+                  Remove coupon
+                </button>
+              )}
+            </div>
+
             <div>
               <label htmlFor="email" className="text-eyebrow block mb-2">Email</label>
               <input

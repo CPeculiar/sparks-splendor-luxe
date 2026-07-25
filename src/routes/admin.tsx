@@ -23,6 +23,7 @@ const NAV = [
   { label: "Catalog & Content", type: "section" as const },
   { to: "/admin/products",     label: "Products",     icon: Package,         exact: false },
   { to: "/admin/categories",   label: "Categories",   icon: Tags,            exact: false },
+  { to: "/admin/sub-categories", label: "Sub-Categories", icon: Tags,        exact: false },
   { to: "/admin/launch",       label: "Featured Launch", icon: Sparkles,     exact: false },
   { to: "/admin/homepage",     label: "Homepage Manager",icon: LayoutDashboard, exact: false },
   { to: "/admin/banners",      label: "Banners",      icon: Image,           exact: false },

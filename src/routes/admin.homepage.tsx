@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Save, GripVertical, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
 import { call as adminCall } from "@/lib/admin-settings";
 import { CloudinaryUpload } from "@/components/CloudinaryUpload";
+import { getAuthToken } from "@/lib/auth";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export const Route = createFileRoute("/admin/homepage")({ component: AdminHomepage });
 
@@ -49,7 +52,7 @@ function AdminHomepage() {
     promo_title: "Bespoke. Beyond Compare.",
     promo_subtitle: "Reserve a private consultation with our master tailors and receive 15% on your first commissioned piece.",
     promo_cta: "Book an Appointment",
-    promo_image: "/gallery/img-15.jpg",
+    promo_image: "/gallery-compressed/prom_suits/Prom_classic_Ric_Hassani_black_velvet_3.jpg",
     marquee_items: "Bespoke Tailoring,Hand Embroidery,Italian Fabrics,Worldwide Shipping,Atelier Lagos",
   });
   const [saving, setSaving]   = useState(false);
@@ -62,24 +65,80 @@ function AdminHomepage() {
 
   async function loadAll() {
     try {
-      const [s, c, st] = await Promise.all([
-        adminCall<HeroSlide[]>("GET", "/api/admin/homepage/hero-slides"),
+      // Load hero slides from the real endpoint
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/hero-slides/admin/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d?.data?.length) {
+          setSlides(
+            d.data.map((s: any) => ({
+              id: s.id,
+              type: s.type || (s.image_url?.match(/\.(mp4|webm|mov)/i) ? "video" : "image"),
+              src: s.src || s.image_url || "",
+              eyebrow: s.eyebrow || "",
+              title: s.title || "",
+              subtitle: s.subtitle || "",
+              cta: s.cta || s.cta_text || "Shop Now",
+              href_category: s.href_category || s.cta_link || "",
+              sort_order: s.sort_order ?? 0,
+              is_active: s.is_active ?? true,
+            }))
+          );
+        }
+      }
+
+      // Load collections + settings via admin-settings helper
+      const [c, st] = await Promise.all([
         adminCall<CollectionCard[]>("GET", "/api/admin/homepage/collections"),
         adminCall<SiteSettings>("GET", "/api/admin/homepage/settings"),
       ]);
-      if (s?.length) setSlides(s);
       if (c?.length) setCollections(c);
       if (st) setSettings(st);
     } catch {
-      // silently use defaults — backend may not have these endpoints yet
+      // silently use defaults
     }
   }
 
   async function saveSlides() {
     setSaving(true); setError(null);
     try {
-      await adminCall("POST", "/api/admin/homepage/hero-slides", { slides });
+      const token = getAuthToken();
+      // Delete all existing slides then re-insert in new order
+      for (let idx = 0; idx < slides.length; idx++) {
+        const slide = slides[idx];
+        // Use current array index as sort_order so reordering persists correctly
+        const payload = {
+          title: slide.title,
+          subtitle: slide.subtitle,
+          image_url: slide.src,
+          cta_text: slide.cta,
+          cta_link: slide.href_category,
+          sort_order: idx,
+          is_active: slide.is_active,
+          eyebrow: slide.eyebrow,
+          type: slide.type,
+          src: slide.src,
+          href_category: slide.href_category,
+        };
+        if (slide.id) {
+          await fetch(`${API_BASE}/api/hero-slides/${slide.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify(payload),
+          });
+        } else {
+          await fetch(`${API_BASE}/api/hero-slides`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify(payload),
+          });
+        }
+      }
       flash();
+      await loadAll();
     } catch (e) { setError(e instanceof Error ? e.message : "Save failed"); }
     finally { setSaving(false); }
   }
@@ -182,7 +241,18 @@ function AdminHomepage() {
                     <ChevronDown className="h-4 w-4" />
                   </button>
                   <button onClick={() => setEditSlide({ ...s })} className="p-1.5 hover:text-gold text-xs uppercase tracking-wider border border-border px-3 py-1">Edit</button>
-                  <button onClick={() => setSlides((prev) => prev.filter((_, i) => i !== idx))} className="p-1.5 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => {
+                    if (!confirm(`Delete "${s.title || 'this slide'}"?`)) return;
+                    if (s.id) {
+                      const token = getAuthToken();
+                      fetch(`${API_BASE}/api/hero-slides/${s.id}`, {
+                        method: "DELETE",
+                        headers: { Authorization: `Bearer ${token}` },
+                      }).then(() => loadAll());
+                    } else {
+                      setSlides((prev) => prev.filter((_, i) => i !== idx));
+                    }
+                  }} className="p-1.5 hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
             ))}
@@ -308,7 +378,7 @@ function AdminHomepage() {
                 onUpload={(url) => setSettings((s) => ({ ...s, promo_image: url }))}
               />
               <Field label="Promo Background Image URL">
-                <input value={settings.promo_image} onChange={(e) => setSettings((s) => ({ ...s, promo_image: e.target.value }))} className="inp" placeholder="/gallery/img-15.jpg" />
+                <input value={settings.promo_image} onChange={(e) => setSettings((s) => ({ ...s, promo_image: e.target.value }))} className="inp" placeholder="/gallery-compressed/prom_suits/Prom_classic_Ric_Hassani_black_velvet_3.jpg" />
               </Field>
               {settings.promo_image && (
                 <img src={settings.promo_image} alt="Promo preview" className="h-32 w-full object-cover object-top border border-border" />
@@ -351,7 +421,7 @@ function SlideModal({ slide, onClose, onSave }: { slide: HeroSlide; onClose: () 
             onUpload={(url) => setS((x) => ({ ...x, src: url }))}
           />
           <Field label="Source URL">
-            <input value={s.src} onChange={(e) => setS((x) => ({ ...x, src: e.target.value }))} className="inp" placeholder="/gallery/img-05.jpg" />
+            <input value={s.src} onChange={(e) => setS((x) => ({ ...x, src: e.target.value }))} className="inp" placeholder="/gallery-compressed/safari_suits/safari-cover-image-main.jpg" />
           </Field>
           {s.src && s.type === "image" && <img src={s.src} alt="" className="h-32 w-full object-cover object-top border border-border" />}
           <Field label="Eyebrow (small text above title)">
@@ -402,7 +472,7 @@ function CollectionModal({ card, onClose, onSave }: { card: CollectionCard; onCl
         </Field>
         <CloudinaryUpload label="Upload Image" accept="image/*" onUpload={(url) => setC((x) => ({ ...x, image: url }))} />
         <Field label="Image URL">
-          <input value={c.image} onChange={(e) => setC((x) => ({ ...x, image: e.target.value }))} className="inp" placeholder="/gallery/safari-code/safari-01.jpg" />
+          <input value={c.image} onChange={(e) => setC((x) => ({ ...x, image: e.target.value }))} className="inp" placeholder="/gallery-compressed/safari_suits/Safari_The_Monarch_Fit_MintGreen_1.jpg" />
         </Field>
         {c.image && <img src={c.image} alt="" className="h-28 w-full object-cover object-top border border-border" />}
         <div className="flex gap-3 pt-2">

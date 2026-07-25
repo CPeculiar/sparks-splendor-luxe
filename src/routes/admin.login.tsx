@@ -51,7 +51,7 @@ function AdminLogin() {
             type="email"
             autoComplete="username"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setError(null); }}
             className="w-full border border-border px-4 py-3 text-base bg-background outline-none focus:border-gold"
           />
         </div>
@@ -63,7 +63,7 @@ function AdminLogin() {
             type="password"
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); setError(null); }}
             className="w-full border border-border px-4 py-3 text-base bg-background outline-none focus:border-gold"
           />
         </div>

@@ -8,7 +8,7 @@ function AboutPage() {
   return (
     <>
       <section className="relative h-[60vh] min-h-[420px] overflow-hidden">
-        <img src="/gallery/img-15.jpg" alt="Sparks & Splendour atelier" className="absolute inset-0 w-full h-full object-cover object-top" />
+        <img src="/gallery-compressed/prom_suits/Prom_classic_Ric_Hassani_black_velvet_3.jpg" alt="Sparks & Splendour atelier" className="absolute inset-0 w-full h-full object-cover object-top" />
         <div className="absolute inset-0 bg-onyx/55" />
         <div className="relative z-10 h-full container-luxe flex flex-col items-center justify-center text-center text-cream">
           <p className="text-eyebrow text-gold">The House</p>
@@ -42,7 +42,7 @@ function AboutPage() {
 
       <section className="bg-onyx text-cream py-24">
         <div className="container-luxe grid md:grid-cols-2 gap-16 items-center">
-          <img src="/gallery/img-30.jpg" alt="" className="w-full aspect-[4/5] object-cover object-top" />
+          <img src="/gallery-compressed/wedding_suits/WeddingSuits_double_breasted_ivory_suit_2.jpg" alt="" className="w-full aspect-[4/5] object-cover object-top" />
           <div>
             <p className="text-eyebrow text-gold">Mission & Vision</p>
             <h2 className="font-display text-4xl md:text-5xl mt-3 leading-tight">Couture as cultural inheritance.</h2>
@@ -68,10 +68,10 @@ function AboutPage() {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { n: "Oriaku Elekwachi", r: "Creative Director", img: "/gallery/couple-02.jpg" },
-            { n: "Chinaza Eze", r: "Master Tailor", img: "/gallery/img-10.jpg" },
-            { n: "Winner Elekwachi", r: "Head of Couture", img: "/gallery/img-50.jpg" },
-            { n: "Peculiar Chukwudi", r: "Atelier Director", img: "/gallery/img-1.jpg" },
+            { n: "Oriaku Elekwachi", r: "Creative Director", img: "/gallery-compressed/Ladies/Ladies_suit_Brown_2.jpg" },
+            { n: "Chinaza Eze", r: "Master Tailor", img: "/gallery-compressed/natives/Native_NAA-002.jpg" },
+            { n: "Winner Elekwachi", r: "Head of Couture", img: "/gallery-compressed/Ladies/ladies_suit_pink_1.jpg" },
+            { n: "Peculiar Chukwudi", r: "Atelier Director", img: "/gallery-compressed/agbada/Agbada_AAA-001.jpg" },
           ].map((m, i) => (
             <figure key={i} className="group">
               <div className="overflow-hidden aspect-[4/5] bg-muted">

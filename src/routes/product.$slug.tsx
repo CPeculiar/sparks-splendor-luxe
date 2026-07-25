@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Heart, Minus, Plus, Ruler, Shield, Star, Truck, ChevronRight, X } from "lucide-react";
 import { useProduct } from "@/lib/db-products";
 import { getRelated } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
+import { getAuthToken, isAuthenticated, getCurrentUser } from "@/lib/auth";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 export const Route = createFileRoute("/product/$slug")({
   component: ProductPage,
@@ -22,6 +25,107 @@ function ProductPage() {
   const [activeImg, setActiveImg] = useState(0);
   const [zoom, setZoom] = useState(false);
   const [guide, setGuide] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [inWishlist, setInWishlist] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, title: "", body: "" });
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!product) return;
+
+    // Fetch reviews
+    setReviewsLoading(true);
+    fetch(`${API_BASE}/api/reviews/product/${product.id}`)
+      .then(r => r.json())
+      .then(d => setReviews(d.data || []))
+      .catch(() => setReviews([]))
+      .finally(() => setReviewsLoading(false));
+
+    // Check if product is in wishlist (authenticated only)
+    if (isAuthenticated()) {
+      const token = getAuthToken();
+      fetch(`${API_BASE}/api/wishlists/check/${product.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(d => setInWishlist(d.inWishlist))
+        .catch(() => setInWishlist(false));
+    }
+  }, [product?.id]);
+
+  const handleWishlistToggle = async () => {
+    if (!isAuthenticated()) {
+      setReviewError("Please sign in to add to wishlist");
+      return;
+    }
+
+    const token = getAuthToken();
+    try {
+      if (inWishlist) {
+        await fetch(`${API_BASE}/api/wishlists/${product.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setInWishlist(false);
+      } else {
+        await fetch(`${API_BASE}/api/wishlists`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ product_id: product.id })
+        });
+        setInWishlist(true);
+      }
+    } catch (e) {
+      console.error("Wishlist error:", e);
+    }
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewForm.title.trim() || !reviewForm.body.trim()) {
+      setReviewError("Please fill in all fields");
+      return;
+    }
+
+    setSubmittingReview(true);
+    setReviewError(null);
+
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          product_id: product.id,
+          rating: reviewForm.rating,
+          title: reviewForm.title,
+          body: reviewForm.body
+        })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to submit review");
+      }
+
+      setReviewSuccess(true);
+      setReviewForm({ rating: 5, title: "", body: "" });
+      setTimeout(() => setReviewSuccess(false), 3000);
+    } catch (e) {
+      setReviewError(e instanceof Error ? e.message : "Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -108,10 +212,10 @@ function ProductPage() {
             <div className="flex text-gold">
               {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-current" />)}
             </div>
-            <span className="text-xs text-muted-foreground">(48 reviews)</span>
+            <span className="text-xs text-muted-foreground">({reviews.length} {reviews.length === 1 ? "review" : "reviews"})</span>
           </div>
 
-          <p className="text-2xl font-display mt-5 tabular-nums">{format(product.price)}</p>
+          <p className="text-2xl font-display mt-5 tabular-nums">{product.currency_symbol}{Math.round(product.display_price).toLocaleString()}</p>
           <p className="text-xs text-muted-foreground mt-1">Tax included. Bespoke fittings complimentary.</p>
 
           <p className="mt-6 text-muted-foreground leading-relaxed">{product.description}</p>
@@ -169,8 +273,18 @@ function ProductPage() {
             >
               Add to Bag
             </button>
-            <button className="h-12 w-12 border border-border flex items-center justify-center hover:border-gold hover:text-gold transition-colors" aria-label="Wishlist">
-              <Heart className="h-4 w-4" />
+            <button
+              onClick={handleWishlistToggle}
+              disabled={!isAuthenticated()}
+              className={`h-12 w-12 border flex items-center justify-center transition-colors ${
+                inWishlist
+                  ? "bg-gold text-onyx border-gold"
+                  : "border-border hover:border-gold hover:text-gold"
+              } ${!isAuthenticated() ? "opacity-50 cursor-not-allowed" : ""}`}
+              aria-label="Wishlist"
+              title={!isAuthenticated() ? "Sign in to save" : ""}
+            >
+              <Heart className={`h-4 w-4 ${inWishlist ? "fill-current" : ""}`} />
             </button>
           </div>
 
@@ -222,6 +336,103 @@ function ProductPage() {
         </section>
       )}
 
+      {/* Reviews Section */}
+      <section className="container-luxe pb-20">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="font-display text-3xl md:text-4xl mb-10">Customer Reviews</h2>
+
+          {/* Review Form */}
+          {isAuthenticated() && (
+            <div className="border border-border p-6 md:p-8 mb-10">
+              <h3 className="font-display text-xl mb-4">Share Your Thoughts</h3>
+              {reviewSuccess && (
+                <p className="text-sm text-gold-deep bg-gold/10 p-3 mb-4 rounded">✓ Thank you! Your review is pending approval.</p>
+              )}
+              {reviewError && (
+                <p className="text-sm text-destructive bg-destructive/10 p-3 mb-4 rounded">{reviewError}</p>
+              )}
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                <div>
+                  <label className="text-eyebrow block mb-2">Rating</label>
+                  <select
+                    value={reviewForm.rating}
+                    onChange={(e) => setReviewForm({ ...reviewForm, rating: Number(e.target.value) })}
+                    className="w-full border border-border bg-background px-4 py-2 text-sm outline-none focus:border-gold"
+                  >
+                    <option value={5}>★★★★★ (Excellent)</option>
+                    <option value={4}>★★★★ (Very Good)</option>
+                    <option value={3}>★★★ (Good)</option>
+                    <option value={2}>★★ (Fair)</option>
+                    <option value={1}>★ (Poor)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-eyebrow block mb-2">Title</label>
+                  <input
+                    type="text"
+                    value={reviewForm.title}
+                    onChange={(e) => setReviewForm({ ...reviewForm, title: e.target.value })}
+                    placeholder="e.g., Perfect fit and quality"
+                    className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold"
+                  />
+                </div>
+                <div>
+                  <label className="text-eyebrow block mb-2">Review</label>
+                  <textarea
+                    value={reviewForm.body}
+                    onChange={(e) => setReviewForm({ ...reviewForm, body: e.target.value })}
+                    placeholder="Share your experience..."
+                    className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold min-h-24 resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="w-full bg-onyx text-cream py-3 text-xs tracking-[0.25em] uppercase font-semibold hover:bg-gold hover:text-onyx disabled:bg-muted transition-colors"
+                >
+                  {submittingReview ? "Submitting..." : "Submit Review"}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {!isAuthenticated() && (
+            <div className="border border-border p-6 text-center mb-10">
+              <p className="text-sm text-muted-foreground">
+                <Link to="/account" className="text-gold-deep hover:underline">Sign in</Link> to leave a review
+              </p>
+            </div>
+          )}
+
+          {/* Reviews List */}
+          {reviewsLoading ? (
+            <p className="text-muted-foreground">Loading reviews...</p>
+          ) : reviews.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No approved reviews yet. Be the first!</p>
+          ) : (
+            <div className="space-y-4">
+              {reviews.map((review) => (
+                <div key={review.id} className="border border-border p-5 rounded">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex gap-1 text-gold">
+                      {Array.from({ length: review.rating }).map((_, i) => (
+                        <Star key={i} className="h-3.5 w-3.5 fill-current" />
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <h4 className="font-medium">{review.title}</h4>
+                  <p className="text-sm text-muted-foreground mt-2">{review.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* zoom modal */}
       {zoom && (
         <div className="fixed inset-0 z-50 bg-onyx/95 flex items-center justify-center p-4 animate-fade-in">
           <button onClick={() => setZoom(false)} className="absolute top-6 right-6 text-cream hover:text-gold" aria-label="Close zoom">

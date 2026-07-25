@@ -159,6 +159,7 @@ export interface AdminProduct {
   category_slug?: string;
   description: string | null;
   price: number;
+  price_usd?: number;
   currency: string;
   quantity_in_stock: number;
   main_image_url: string | null;
@@ -318,7 +319,7 @@ export interface AdminCategory {
 }
 
 export const fetchCategories = async () => {
-  const r = await call<{ data: AdminCategory[] }>("GET", "/api/categories");
+  const r = await call<{ data: AdminCategory[] }>("GET", "/api/categories/admin/all");
   return r.data;
 };
 

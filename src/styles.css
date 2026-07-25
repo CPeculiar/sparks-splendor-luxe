@@ -203,6 +203,20 @@
   }
 }
 
+@utility inp {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-background);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+  &:focus {
+    border-color: var(--color-gold);
+  }
+}
+
 @utility text-gold-shimmer {
   background: linear-gradient(
     90deg,

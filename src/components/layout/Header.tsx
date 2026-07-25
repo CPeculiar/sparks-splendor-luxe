@@ -5,39 +5,24 @@ import logo from "@/assets/logo-mark.png";
 import { useCart } from "@/lib/cart";
 import { getCurrentUser, isAuthenticated, type AuthUser } from "@/lib/auth";
 
-const SUIT_SUBS = [
-  { label: "Prom Suits",     search: { category: "suits", sub: "prom" } },
-  { label: "Wedding Suits",  search: { category: "suits", sub: "wedding" } },
-  { label: "Business Suits", search: { category: "suits", sub: "business" } },
-  { label: "Dinner Suits",   search: { category: "suits", sub: "dinner" } },
-  { label: "Safari Suits",   search: { category: "suits", sub: "safari" } },
-];
-
-// Left side of logo (6 items)
-const NAV_LEFT = [
-  { label: "Suits",   to: "/shop", search: { category: "suits" },   hasSub: true },
-  { label: "Natives", to: "/shop", search: { category: "natives" },  hasSub: false },
-  { label: "Kaftan",  to: "/shop", search: { category: "kaftan" },   hasSub: false },
-  { label: "Agbada",  to: "/shop", search: { category: "agbada" },   hasSub: false },
-  { label: "Shirts",  to: "/shop", search: { category: "shirts" },   hasSub: false },
-  { label: "Pants",   to: "/shop", search: { category: "pants" },    hasSub: false },
-];
-
-// Right side of logo (2 items only)
-const NAV_RIGHT = [
-  { label: "Casuals", to: "/shop", search: { category: "casuals" }, hasSub: false },
-  { label: "Ladies",  to: "/shop", search: { category: "ladies" },  hasSub: false },
-];
-
-const ALL_NAV = [...NAV_LEFT, ...NAV_RIGHT];
+interface NavCategory {
+  id: string;
+  label: string;
+  slug: string;
+  is_active: boolean;
+  hasSub: boolean;
+}
 
 export function Header() {
   const { count, setOpen } = useCart();
   const [scrolled, setScrolled]       = useState(false);
   const [mobile, setMobile]           = useState(false);
-  const [mobileSubOpen, setMobileSubOpen] = useState(false);
-  const [suitsHovered, setSuitsHovered]   = useState(false);
+  const [mobileSubOpen, setMobileSubOpen] = useState<string | null>(null);
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null);
   const [authUser, setAuthUser]       = useState<AuthUser | null>(null);
+  const [categories, setCategories] = useState<NavCategory[]>([]);
+  const [subCategories, setSubCategories] = useState<Record<string, any[]>>({});
+  const [loadingCategories, setLoadingCategories] = useState(true);
   const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { pathname } = useLocation();
@@ -50,6 +35,120 @@ export function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Fetch categories from backend
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        setLoadingCategories(true);
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+        const res = await fetch(`${API_BASE}/api/categories`);
+        
+        if (!res.ok) {
+          console.warn("Failed to fetch categories, using fallback");
+          // Fallback categories if API fails
+          setCategories([
+            { id: "1", label: "Suits", slug: "suits", is_active: true, hasSub: true },
+            { id: "2", label: "Natives", slug: "natives", is_active: true, hasSub: false },
+            { id: "3", label: "Kaftan", slug: "kaftan", is_active: true, hasSub: false },
+            { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
+            { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
+            { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
+            { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
+            { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
+          ]);
+          return;
+        }
+        
+        const data = await res.json();
+        console.log("Fetched categories:", data);
+        
+        // Filter to only active categories and map to NavCategory format
+        const activeCategories: NavCategory[] = (data.data || [])
+          .filter((c: any) => c.is_active !== false)
+          .map((c: any) => ({
+            id: c.id,
+            label: c.name,
+            slug: c.slug,
+            is_active: c.is_active !== false,
+            hasSub: false // Will be determined after fetching sub-categories
+          }));
+        
+        console.log("Active categories:", activeCategories);
+
+        // Fetch all active sub-categories
+        try {
+          const subRes = await fetch(`${API_BASE}/api/sub-categories/list/all-active`);
+          if (subRes.ok) {
+            const subData = await subRes.json();
+            console.log("Fetched sub-categories:", subData);
+            const subs = subData.data || [];
+            
+            // Build a map of category IDs that have sub-categories
+            const categoryIdsWithSubs = new Set(subs.map((s: any) => s.category_id));
+            
+            // Update categories to mark which ones have sub-categories
+            const updatedCategories = activeCategories.map(cat => ({
+              ...cat,
+              hasSub: categoryIdsWithSubs.has(Number(cat.id) || cat.id)
+            }));
+            
+            // Group sub-categories by category slug
+            const subsByCategory: Record<string, any[]> = {};
+            subs.forEach((sub: any) => {
+              const catSlug = sub.category_slug;
+              if (!subsByCategory[catSlug]) {
+                subsByCategory[catSlug] = [];
+              }
+              subsByCategory[catSlug].push(sub);
+            });
+            
+            setSubCategories(subsByCategory);
+            setCategories(updatedCategories.length > 0 ? updatedCategories : [
+              { id: "1", label: "Suits", slug: "suits", is_active: true, hasSub: true },
+              { id: "2", label: "Natives", slug: "natives", is_active: true, hasSub: false },
+              { id: "3", label: "Kaftan", slug: "kaftan", is_active: true, hasSub: false },
+              { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
+              { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
+              { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
+              { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
+              { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
+            ]);
+            return;
+          }
+        } catch (subErr) {
+          console.error("Failed to load sub-categories:", subErr);
+        }
+        
+        setCategories(activeCategories.length > 0 ? activeCategories : [
+          { id: "1", label: "Suits", slug: "suits", is_active: true, hasSub: true },
+          { id: "2", label: "Natives", slug: "natives", is_active: true, hasSub: false },
+          { id: "3", label: "Kaftan", slug: "kaftan", is_active: true, hasSub: false },
+          { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
+          { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
+          { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
+          { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
+          { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
+        ]);
+      } catch (e) {
+        console.error("Failed to load categories:", e);
+        // Set fallback categories if everything fails
+        setCategories([
+          { id: "1", label: "Suits", slug: "suits", is_active: true, hasSub: true },
+          { id: "2", label: "Natives", slug: "natives", is_active: true, hasSub: false },
+          { id: "3", label: "Kaftan", slug: "kaftan", is_active: true, hasSub: false },
+          { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
+          { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
+          { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
+          { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
+          { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
+        ]);
+      } finally {
+        setLoadingCategories(false);
+      }
+    }
+    void loadCategories();
+  }, []);
+
   useEffect(() => { setMobile(false); }, [pathname]);
   useEffect(() => {
     setAuthUser(isAuthenticated() ? getCurrentUser() : null);
@@ -58,42 +157,49 @@ export function Header() {
   const transparent = isHome && !scrolled;
   const textCls = transparent ? "text-cream" : "text-foreground";
 
-  const enterSuits = () => {
+  // Split categories for layout (split roughly in half)
+  const splitIndex = Math.ceil(categories.length / 2);
+  const navLeft = categories.slice(0, splitIndex);
+  const navRight = categories.slice(splitIndex);
+
+  const enterCategory = (slug: string) => {
     if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
-    setSuitsHovered(true);
-  };
-  const leaveSuits = () => {
-    hoverTimeout.current = setTimeout(() => setSuitsHovered(false), 150);
+    setHoveredCategory(slug);
   };
 
-  function NavLink({ item }: { item: typeof NAV_LEFT[0] }) {
+  const leaveCategory = () => {
+    hoverTimeout.current = setTimeout(() => setHoveredCategory(null), 150);
+  };
+
+  function NavLink({ item }: { item: NavCategory }) {
     if (item.hasSub) {
+      const subs = subCategories[item.slug] || [];
       return (
-        <div className="relative" onMouseEnter={enterSuits} onMouseLeave={leaveSuits}>
+        <div className="relative" onMouseEnter={() => enterCategory(item.slug)} onMouseLeave={leaveCategory}>
           <Link
-            to={item.to}
-            search={item.search as never}
+            to="/shop"
+            search={{ category: item.slug } as never}
             className={`flex items-center gap-0.5 hover:text-gold transition-colors duration-200 relative group ${textCls}`}
           >
             {item.label}
-            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${suitsHovered ? "rotate-180" : ""}`} />
+            <ChevronDown className={`h-3 w-3 transition-transform duration-200 ${hoveredCategory === item.slug ? "rotate-180" : ""}`} />
             <span className="absolute left-0 -bottom-1 h-px w-0 bg-gold transition-all duration-300 group-hover:w-full" />
           </Link>
 
-          {suitsHovered && (
+          {hoveredCategory === item.slug && subs.length > 0 && (
             <div
               className="absolute top-full left-0 mt-2 w-52 bg-onyx border border-gold/20 shadow-2xl py-1 z-50"
-              onMouseEnter={enterSuits}
-              onMouseLeave={leaveSuits}
+              onMouseEnter={() => enterCategory(item.slug)}
+              onMouseLeave={leaveCategory}
             >
-              {SUIT_SUBS.map((s) => (
+              {subs.map((s) => (
                 <Link
-                  key={s.label}
+                  key={s.id}
                   to="/shop"
-                  search={s.search as never}
+                  search={{ category: item.slug, sub: s.slug } as never}
                   className="block px-5 py-3 text-[11px] tracking-[0.2em] uppercase text-cream/80 hover:text-gold hover:bg-white/5 transition-colors"
                 >
-                  {s.label}
+                  {s.name}
                 </Link>
               ))}
             </div>
@@ -103,8 +209,8 @@ export function Header() {
     }
     return (
       <Link
-        to={item.to}
-        search={item.search as never}
+        to="/shop"
+        search={{ category: item.slug } as never}
         className={`hover:text-gold transition-colors duration-200 relative group ${textCls}`}
       >
         {item.label}
@@ -141,7 +247,11 @@ export function Header() {
 
           {/* ── Desktop: left nav ── */}
           <nav className="hidden lg:flex items-center gap-4 text-[11px] tracking-[0.18em] uppercase font-medium" style={{ flex: '0 1 auto', marginRight: '2rem' }}>
-            {NAV_LEFT.map((n) => <NavLink key={n.label} item={n} />)}
+            {loadingCategories ? (
+              <span className={`text-xs ${textCls}`}>Loading...</span>
+            ) : navLeft.length > 0 ? (
+              navLeft.map((n) => <NavLink key={n.id} item={n} />)
+            ) : null}
           </nav>
 
           {/* ── Logo (center) ── */}
@@ -158,7 +268,7 @@ export function Header() {
 
           {/* ── Desktop: right nav + icons ── */}
           <div className="hidden lg:flex items-center gap-4 text-[11px] tracking-[0.18em] uppercase font-medium justify-end" style={{ flex: '0 1 auto', marginLeft: '2rem' }}>
-            {NAV_RIGHT.map((n) => <NavLink key={n.label} item={n} />)}
+            {!loadingCategories && navRight.length > 0 && navRight.map((n) => <NavLink key={n.id} item={n} />)}
 
             {/* divider */}
             <span className="h-4 w-px bg-border/60 mx-1" />
@@ -222,41 +332,48 @@ export function Header() {
                 Home
               </Link>
 
-              {/* Suits accordion */}
-              <div className="border-b border-border">
-                <button
-                  onClick={() => setMobileSubOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-5 py-3.5 text-sm tracking-[0.18em] uppercase hover:text-gold hover:bg-secondary/30 transition-colors"
-                >
-                  Suits
-                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${mobileSubOpen ? "rotate-180" : ""}`} />
-                </button>
-                {mobileSubOpen && (
-                  <div className="bg-secondary/20">
-                    {SUIT_SUBS.map((s) => (
-                      <Link
-                        key={s.label}
-                        to="/shop"
-                        search={s.search as never}
-                        className="block pl-8 pr-5 py-3 text-sm tracking-[0.15em] uppercase border-t border-border/50 hover:text-gold transition-colors"
+              {/* Render all categories - those with hasSub get accordions, others are direct links */}
+              {categories.map((cat) => {
+                if (cat.hasSub) {
+                  const subs = subCategories[cat.slug] || [];
+                  const isOpen = mobileSubOpen === cat.id;
+                  return (
+                    <div key={cat.id} className="border-b border-border">
+                      <button
+                        onClick={() => setMobileSubOpen(isOpen ? null : cat.id)}
+                        className="w-full flex items-center justify-between px-5 py-3.5 text-sm tracking-[0.18em] uppercase hover:text-gold hover:bg-secondary/30 transition-colors"
                       >
-                        {s.label}
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {ALL_NAV.filter((n) => !n.hasSub).map((n) => (
-                <Link
-                  key={n.label}
-                  to={n.to}
-                  search={n.search as never}
-                  className="px-5 py-3.5 text-sm tracking-[0.18em] uppercase border-b border-border hover:text-gold hover:bg-secondary/30 transition-colors"
-                >
-                  {n.label}
-                </Link>
-              ))}
+                        {cat.label}
+                        <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                      </button>
+                      {isOpen && subs.length > 0 && (
+                        <div className="bg-secondary/20">
+                          {subs.map((s) => (
+                            <Link
+                              key={s.id}
+                              to="/shop"
+                              search={{ category: cat.slug, sub: s.slug } as never}
+                              className="block pl-8 pr-5 py-3 text-sm tracking-[0.15em] uppercase border-t border-border/50 hover:text-gold transition-colors"
+                            >
+                              {s.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <Link
+                    key={cat.id}
+                    to="/shop"
+                    search={{ category: cat.slug } as never}
+                    className="px-5 py-3.5 text-sm tracking-[0.18em] uppercase border-b border-border hover:text-gold hover:bg-secondary/30 transition-colors"
+                  >
+                    {cat.label}
+                  </Link>
+                );
+              })}
 
               <Link to="/about"   className="px-5 py-3.5 text-sm tracking-[0.18em] uppercase border-b border-border hover:text-gold hover:bg-secondary/30 transition-colors">About</Link>
               <Link to="/contact" className="px-5 py-3.5 text-sm tracking-[0.18em] uppercase border-b border-border hover:text-gold hover:bg-secondary/30 transition-colors">Contact</Link>

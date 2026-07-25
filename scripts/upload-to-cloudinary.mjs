@@ -19,7 +19,8 @@ const VIDEO_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/up
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 const VIDEO_EXTS = new Set([".mp4", ".webm"]);
 
-const GALLERY_DIR = join(process.cwd(), "public", "gallery");
+// Use compressed images — run compress-images.mjs first
+const GALLERY_DIR = join(process.cwd(), "public", "gallery-compressed");
 const SAFARI_DIR = join(GALLERY_DIR, "safari-code");
 const VIDEO_DIR = join(process.cwd(), "public", "video");
 

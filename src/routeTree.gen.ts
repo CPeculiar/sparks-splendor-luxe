@@ -22,8 +22,11 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as VerifyEmailTokenRouteImport } from './routes/verify-email.$token'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as AdminTransactionsRouteImport } from './routes/admin.transactions'
+import { Route as AdminSubCategoriesRouteImport } from './routes/admin.sub-categories'
+import { Route as AdminSettingsRouteImport } from './routes/admin.settings'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminPermissionsRouteImport } from './routes/admin.permissions'
@@ -35,6 +38,7 @@ import { Route as AdminMediaRouteImport } from './routes/admin.media'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminLaunchRouteImport } from './routes/admin.launch'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
+import { Route as AdminImportRouteImport } from './routes/admin.import'
 import { Route as AdminHomepageRouteImport } from './routes/admin.homepage'
 import { Route as AdminFaqsRouteImport } from './routes/admin.faqs'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
@@ -42,6 +46,7 @@ import { Route as AdminCouponsRouteImport } from './routes/admin.coupons'
 import { Route as AdminCategoriesRouteImport } from './routes/admin.categories'
 import { Route as AdminBannersRouteImport } from './routes/admin.banners'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin.analytics'
+import { Route as AccountWishlistRouteImport } from './routes/account.wishlist'
 import { Route as AccountOrdersRouteImport } from './routes/account.orders'
 
 const TermsConditionsRoute = TermsConditionsRouteImport.update({
@@ -109,6 +114,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
+const VerifyEmailTokenRoute = VerifyEmailTokenRouteImport.update({
+  id: '/verify-email/$token',
+  path: '/verify-email/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProductSlugRoute = ProductSlugRouteImport.update({
   id: '/product/$slug',
   path: '/product/$slug',
@@ -117,6 +127,16 @@ const ProductSlugRoute = ProductSlugRouteImport.update({
 const AdminTransactionsRoute = AdminTransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSubCategoriesRoute = AdminSubCategoriesRouteImport.update({
+  id: '/sub-categories',
+  path: '/sub-categories',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminReviewsRoute = AdminReviewsRouteImport.update({
@@ -174,6 +194,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminImportRoute = AdminImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminHomepageRoute = AdminHomepageRouteImport.update({
   id: '/homepage',
   path: '/homepage',
@@ -209,6 +234,11 @@ const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => AdminRoute,
 } as any)
+const AccountWishlistRoute = AccountWishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
+  getParentRoute: () => AccountRoute,
+} as any)
 const AccountOrdersRoute = AccountOrdersRouteImport.update({
   id: '/orders',
   path: '/orders',
@@ -229,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/shop': typeof ShopRoute
   '/terms-conditions': typeof TermsConditionsRoute
   '/account/orders': typeof AccountOrdersRoute
+  '/account/wishlist': typeof AccountWishlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/banners': typeof AdminBannersRoute
   '/admin/categories': typeof AdminCategoriesRoute
@@ -236,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/homepage': typeof AdminHomepageRoute
+  '/admin/import': typeof AdminImportRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/launch': typeof AdminLaunchRoute
   '/admin/login': typeof AdminLoginRoute
@@ -247,8 +279,11 @@ export interface FileRoutesByFullPath {
   '/admin/permissions': typeof AdminPermissionsRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/sub-categories': typeof AdminSubCategoriesRoute
   '/admin/transactions': typeof AdminTransactionsRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -264,6 +299,7 @@ export interface FileRoutesByTo {
   '/shop': typeof ShopRoute
   '/terms-conditions': typeof TermsConditionsRoute
   '/account/orders': typeof AccountOrdersRoute
+  '/account/wishlist': typeof AccountWishlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/banners': typeof AdminBannersRoute
   '/admin/categories': typeof AdminCategoriesRoute
@@ -271,6 +307,7 @@ export interface FileRoutesByTo {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/homepage': typeof AdminHomepageRoute
+  '/admin/import': typeof AdminImportRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/launch': typeof AdminLaunchRoute
   '/admin/login': typeof AdminLoginRoute
@@ -282,8 +319,11 @@ export interface FileRoutesByTo {
   '/admin/permissions': typeof AdminPermissionsRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/sub-categories': typeof AdminSubCategoriesRoute
   '/admin/transactions': typeof AdminTransactionsRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -301,6 +341,7 @@ export interface FileRoutesById {
   '/shop': typeof ShopRoute
   '/terms-conditions': typeof TermsConditionsRoute
   '/account/orders': typeof AccountOrdersRoute
+  '/account/wishlist': typeof AccountWishlistRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/banners': typeof AdminBannersRoute
   '/admin/categories': typeof AdminCategoriesRoute
@@ -308,6 +349,7 @@ export interface FileRoutesById {
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/faqs': typeof AdminFaqsRoute
   '/admin/homepage': typeof AdminHomepageRoute
+  '/admin/import': typeof AdminImportRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/launch': typeof AdminLaunchRoute
   '/admin/login': typeof AdminLoginRoute
@@ -319,8 +361,11 @@ export interface FileRoutesById {
   '/admin/permissions': typeof AdminPermissionsRoute
   '/admin/products': typeof AdminProductsRoute
   '/admin/reviews': typeof AdminReviewsRoute
+  '/admin/settings': typeof AdminSettingsRoute
+  '/admin/sub-categories': typeof AdminSubCategoriesRoute
   '/admin/transactions': typeof AdminTransactionsRoute
   '/product/$slug': typeof ProductSlugRoute
+  '/verify-email/$token': typeof VerifyEmailTokenRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -339,6 +384,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/terms-conditions'
     | '/account/orders'
+    | '/account/wishlist'
     | '/admin/analytics'
     | '/admin/banners'
     | '/admin/categories'
@@ -346,6 +392,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/faqs'
     | '/admin/homepage'
+    | '/admin/import'
     | '/admin/inventory'
     | '/admin/launch'
     | '/admin/login'
@@ -357,8 +404,11 @@ export interface FileRouteTypes {
     | '/admin/permissions'
     | '/admin/products'
     | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/sub-categories'
     | '/admin/transactions'
     | '/product/$slug'
+    | '/verify-email/$token'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -374,6 +424,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/terms-conditions'
     | '/account/orders'
+    | '/account/wishlist'
     | '/admin/analytics'
     | '/admin/banners'
     | '/admin/categories'
@@ -381,6 +432,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/faqs'
     | '/admin/homepage'
+    | '/admin/import'
     | '/admin/inventory'
     | '/admin/launch'
     | '/admin/login'
@@ -392,8 +444,11 @@ export interface FileRouteTypes {
     | '/admin/permissions'
     | '/admin/products'
     | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/sub-categories'
     | '/admin/transactions'
     | '/product/$slug'
+    | '/verify-email/$token'
     | '/admin'
   id:
     | '__root__'
@@ -410,6 +465,7 @@ export interface FileRouteTypes {
     | '/shop'
     | '/terms-conditions'
     | '/account/orders'
+    | '/account/wishlist'
     | '/admin/analytics'
     | '/admin/banners'
     | '/admin/categories'
@@ -417,6 +473,7 @@ export interface FileRouteTypes {
     | '/admin/customers'
     | '/admin/faqs'
     | '/admin/homepage'
+    | '/admin/import'
     | '/admin/inventory'
     | '/admin/launch'
     | '/admin/login'
@@ -428,8 +485,11 @@ export interface FileRouteTypes {
     | '/admin/permissions'
     | '/admin/products'
     | '/admin/reviews'
+    | '/admin/settings'
+    | '/admin/sub-categories'
     | '/admin/transactions'
     | '/product/$slug'
+    | '/verify-email/$token'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -447,6 +507,7 @@ export interface RootRouteChildren {
   ShopRoute: typeof ShopRoute
   TermsConditionsRoute: typeof TermsConditionsRoute
   ProductSlugRoute: typeof ProductSlugRoute
+  VerifyEmailTokenRoute: typeof VerifyEmailTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -542,6 +603,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/verify-email/$token': {
+      id: '/verify-email/$token'
+      path: '/verify-email/$token'
+      fullPath: '/verify-email/$token'
+      preLoaderRoute: typeof VerifyEmailTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/product/$slug': {
       id: '/product/$slug'
       path: '/product/$slug'
@@ -554,6 +622,20 @@ declare module '@tanstack/react-router' {
       path: '/transactions'
       fullPath: '/admin/transactions'
       preLoaderRoute: typeof AdminTransactionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/sub-categories': {
+      id: '/admin/sub-categories'
+      path: '/sub-categories'
+      fullPath: '/admin/sub-categories'
+      preLoaderRoute: typeof AdminSubCategoriesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/reviews': {
@@ -633,6 +715,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInventoryRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/import': {
+      id: '/admin/import'
+      path: '/import'
+      fullPath: '/admin/import'
+      preLoaderRoute: typeof AdminImportRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/homepage': {
       id: '/admin/homepage'
       path: '/homepage'
@@ -682,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAnalyticsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/account/wishlist': {
+      id: '/account/wishlist'
+      path: '/wishlist'
+      fullPath: '/account/wishlist'
+      preLoaderRoute: typeof AccountWishlistRouteImport
+      parentRoute: typeof AccountRoute
+    }
     '/account/orders': {
       id: '/account/orders'
       path: '/orders'
@@ -694,10 +790,12 @@ declare module '@tanstack/react-router' {
 
 interface AccountRouteChildren {
   AccountOrdersRoute: typeof AccountOrdersRoute
+  AccountWishlistRoute: typeof AccountWishlistRoute
 }
 
 const AccountRouteChildren: AccountRouteChildren = {
   AccountOrdersRoute: AccountOrdersRoute,
+  AccountWishlistRoute: AccountWishlistRoute,
 }
 
 const AccountRouteWithChildren =
@@ -711,6 +809,7 @@ interface AdminRouteChildren {
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminFaqsRoute: typeof AdminFaqsRoute
   AdminHomepageRoute: typeof AdminHomepageRoute
+  AdminImportRoute: typeof AdminImportRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminLaunchRoute: typeof AdminLaunchRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -722,6 +821,8 @@ interface AdminRouteChildren {
   AdminPermissionsRoute: typeof AdminPermissionsRoute
   AdminProductsRoute: typeof AdminProductsRoute
   AdminReviewsRoute: typeof AdminReviewsRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSubCategoriesRoute: typeof AdminSubCategoriesRoute
   AdminTransactionsRoute: typeof AdminTransactionsRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -734,6 +835,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCustomersRoute: AdminCustomersRoute,
   AdminFaqsRoute: AdminFaqsRoute,
   AdminHomepageRoute: AdminHomepageRoute,
+  AdminImportRoute: AdminImportRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminLaunchRoute: AdminLaunchRoute,
   AdminLoginRoute: AdminLoginRoute,
@@ -745,6 +847,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminPermissionsRoute: AdminPermissionsRoute,
   AdminProductsRoute: AdminProductsRoute,
   AdminReviewsRoute: AdminReviewsRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
+  AdminSubCategoriesRoute: AdminSubCategoriesRoute,
   AdminTransactionsRoute: AdminTransactionsRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
@@ -765,6 +869,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShopRoute: ShopRoute,
   TermsConditionsRoute: TermsConditionsRoute,
   ProductSlugRoute: ProductSlugRoute,
+  VerifyEmailTokenRoute: VerifyEmailTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

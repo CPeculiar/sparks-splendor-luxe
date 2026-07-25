@@ -5,24 +5,8 @@ import { useProducts, useCategories } from "@/lib/db-products";
 import type { Category } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
 
-const SUIT_SUBS = [
+const SUIT_SUBS_FALLBACK = [
   { key: "all",      label: "All Suits" },
-  { key: "safari",   label: "Safari" },
-  { key: "wedding",  label: "Wedding" },
-  { key: "business", label: "Business" },
-  { key: "dinner",   label: "Dinner" },
-  { key: "prom",     label: "Prom" },
-];
-
-const SHOP_CATS = [
-  { key: "suits",   label: "Suits" },
-  { key: "natives", label: "Natives" },
-  { key: "kaftan",  label: "Kaftan" },
-  { key: "agbada",  label: "Agbada" },
-  { key: "shirts",  label: "Shirts" },
-  { key: "pants",   label: "Pants" },
-  { key: "casuals", label: "Casuals" },
-  { key: "ladies",  label: "Ladies" },
 ];
 
 const ROWS_PER_LOAD = 3;
@@ -51,38 +35,82 @@ function ShopPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [maxPrice, setMaxPrice] = useState<number>(800000);
   const [visibleRows, setVisibleRows] = useState(ROWS_PER_LOAD);
+  const [currentSubs, setCurrentSubs] = useState<{ key: string; label: string }[]>([]);
+  const [loadingSubs, setLoadingSubs] = useState(false);
 
-  const isSuits = search.category === "suits";
   const activeSub = search.sub ?? "all";
 
   const categoryFilter = search.category && search.category !== "all" ? search.category : undefined;
-  const { products, loading } = useProducts({ category: categoryFilter });
+  const subCategoryFilter = search.sub && search.sub !== "all" ? search.sub : undefined;
+  const { products, loading } = useProducts({ category: categoryFilter, subCategory: subCategoryFilter });
   const { categories: backendCats } = useCategories();
+
+  // Load sub-categories for the current category
+  useEffect(() => {
+    async function loadCategorySubCategories() {
+      if (!search.category || search.category === "all") {
+        setCurrentSubs([]);
+        return;
+      }
+
+      try {
+        setLoadingSubs(true);
+        const category = backendCats.find((c) => c.slug === search.category);
+        if (!category?.id) {
+          setCurrentSubs([]);
+          return;
+        }
+
+        const res = await fetch(`/api/sub-categories/category/${category.id}`);
+        if (!res.ok) {
+          setCurrentSubs([]);
+          return;
+        }
+
+        const json = await res.json();
+        const subs = Array.isArray(json?.data)
+          ? json.data.map((sc: any) => ({ key: sc.slug, label: sc.name }))
+          : [];
+
+        // Add "All" option if there are sub-categories
+        if (subs.length > 0) {
+          const allLabel = `All ${search.category.charAt(0).toUpperCase() + search.category.slice(1)}`;
+          setCurrentSubs([{ key: "all", label: allLabel }, ...subs]);
+        } else {
+          setCurrentSubs([]);
+        }
+      } catch (e) {
+        console.error("Failed to load sub-categories:", e);
+        setCurrentSubs([]);
+      } finally {
+        setLoadingSubs(false);
+      }
+    }
+
+    void loadCategorySubCategories();
+  }, [backendCats, search.category]);
+
+  useEffect(() => {
+    if (currentSubs.length > 0 && activeSub !== "all" && !currentSubs.some((s) => s.key === activeSub)) {
+      navigate({ search: { ...search, sub: undefined } });
+    }
+  }, [activeSub, navigate, search, currentSubs]);
 
   // Reset rows on category or sub change
   useEffect(() => { setVisibleRows(ROWS_PER_LOAD); }, [search.category, search.sub]);
 
-  const allShopCats = backendCats.length
-    ? backendCats.map((c) => ({ key: c.slug as Category, label: c.name, tagline: c.description || "", image: c.image_url || "" }))
-    : SHOP_CATS.map((c) => ({ ...c, tagline: "", image: "/gallery/img-46.jpg" }));
+  const allShopCats = backendCats.map((c) => ({ key: c.slug as Category, label: c.name, tagline: c.description || "", image: c.image_url || "" }));
 
-  const cat = SHOP_CATS.find((c) => c.key === search.category) || allShopCats.find((c) => c.key === search.category);
-  const heroImage = allShopCats.find((c) => c.key === search.category)?.image || "/gallery/img-46.jpg";
+  const cat = allShopCats.find((c) => c.key === search.category);
+  const heroImage = allShopCats.find((c) => c.key === search.category)?.image || "/gallery-compressed/prom_suits/Prom_classic_Ric_Hassani_black_velvet_6.jpg";
   const heading = cat ? cat.label : "The Boutique";
   const tagline = allShopCats.find((c) => c.key === search.category)?.tagline || "Bespoke pieces, hand-finished in our atelier.";
 
   const filtered = useMemo(() => {
     let list = [...products];
-    // Sub-category filter for suits
-    if (isSuits && activeSub !== "all") {
-      // Filter by sub_category field if present, otherwise distribute by index
-      const hasSubField = list.some((p: any) => p.sub_category);
-      if (hasSubField) {
-        list = list.filter((p: any) => p.sub_category === activeSub);
-      } else {
-        const subIdx = SUIT_SUBS.findIndex((s) => s.key === activeSub) - 1; // -1 because index 0 is "all"
-        list = list.filter((_, i) => i % (SUIT_SUBS.length - 1) === subIdx);
-      }
+    // Sub-category filter for any category with sub-categories
+    if (currentSubs.length > 0 && activeSub !== "all") {
+      list = list.filter((p) => p.sub_category === activeSub);
     }
     if (search.size) list = list.filter((p) => p.sizes.includes(search.size!));
     list = list.filter((p) => p.price <= maxPrice);
@@ -92,11 +120,12 @@ function ShopPage() {
       case "newest": list.sort((a, b) => (b.badge === "New" ? 1 : 0) - (a.badge === "New" ? 1 : 0)); break;
     }
     return list;
-  }, [products, search.sort, search.size, maxPrice, isSuits, activeSub]);
+  }, [products, search.sort, search.size, maxPrice, currentSubs.length, activeSub]);
 
   const maxVisible = visibleRows * COLS;
-  const visible = isSuits ? filtered.slice(0, maxVisible) : filtered;
-  const hasMore = isSuits && filtered.length > maxVisible;
+  const hasSubCategories = currentSubs.length > 0;
+  const visible = hasSubCategories ? filtered.slice(0, maxVisible) : filtered;
+  const hasMore = hasSubCategories && filtered.length > maxVisible;
 
   return (
     <>
@@ -116,19 +145,19 @@ function ShopPage() {
         <div className="container-luxe overflow-x-auto">
           <div className="flex items-center justify-center gap-1 md:gap-2 py-3 min-w-max">
             <CatPill label="All" active={!search.category || search.category === "all"} onClick={() => navigate({ search: { ...search, category: "all", sub: undefined } })} />
-            {SHOP_CATS.map((c) => (
+            {allShopCats.map((c) => (
               <CatPill key={c.key} label={c.label} active={search.category === c.key} onClick={() => navigate({ search: { ...search, category: c.key, sub: undefined } })} />
             ))}
           </div>
         </div>
       </div>
 
-      {/* suits sub-category strip */}
-      {isSuits && (
+      {/* sub-category strip (for any category with sub-categories) */}
+      {currentSubs.length > 0 && (
         <div className="border-b border-border/60 bg-secondary/20">
           <div className="container-luxe overflow-x-auto">
             <div className="flex items-center justify-center gap-1 md:gap-2 py-2.5 min-w-max">
-              {SUIT_SUBS.map((s) => (
+              {currentSubs.map((s) => (
                 <CatPill
                   key={s.key}
                   label={s.label}
@@ -209,7 +238,7 @@ function ShopPage() {
               <div>
                 <h4 className="text-eyebrow mb-4">Category</h4>
                 <div className="space-y-2">
-                  {[{ key: "all", label: "All" }, ...SHOP_CATS].map((c) => (
+                  {[{ key: "all", label: "All" }, ...allShopCats].map((c) => (
                     <button
                       key={c.key}
                       onClick={() => navigate({ search: { ...search, category: c.key } })}

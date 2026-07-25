@@ -51,7 +51,10 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         >
           {product.name}
         </Link>
-        <p className="text-sm mt-1 tabular-nums">{format(product.price)}</p>
+        <p className="text-sm mt-1 tabular-nums">
+          {product.currency_symbol}
+          {Math.round(product.display_price).toLocaleString()}
+        </p>
       </div>
     </div>
   );

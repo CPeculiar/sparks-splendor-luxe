@@ -53,7 +53,7 @@ function AdminProducts() {
           <h1 className="font-display text-3xl md:text-4xl mt-1">Products</h1>
         </div>
         <button
-          onClick={() => setEditing({ name: "", slug: "", price: 0, currency: "₦", quantity_in_stock: 0, is_active: true, is_featured: false, colors: [], sizes: ["S","M","L","XL","XXL"] })}
+          onClick={() => setEditing({ name: "", slug: "", price: 0, price_usd: 0, currency: "₦", quantity_in_stock: 0, is_active: true, is_featured: false, colors: [], sizes: ["S","M","L","XL","XXL"] })}
           className="inline-flex items-center gap-2 bg-onyx text-cream px-5 py-3 text-xs tracking-[0.25em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
         >
           <Plus className="h-4 w-4" /> New Product
@@ -66,13 +66,13 @@ function AdminProducts() {
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-left">
             <tr>
-              {["", "Name", "Category", "Price", "Stock", "Active", ""].map((h) => (
+              {["", "Name", "Category", "Price NGN", "Price USD", "Stock", "Active", ""].map((h) => (
                 <th key={h} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading…</td></tr>}
+            {loading && <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">Loading…</td></tr>}
             {list.map((p) => (
               <tr key={p.id} className="border-t border-border hover:bg-secondary/20">
                 <td className="p-3">
@@ -86,7 +86,8 @@ function AdminProducts() {
                   <p className="text-xs text-muted-foreground">{p.slug}</p>
                 </td>
                 <td className="p-3 text-xs capitalize">{p.category_slug || "—"}</td>
-                <td className="p-3 tabular-nums text-xs">{p.currency || "₦"}{Number(p.price).toLocaleString()}</td>
+                <td className="p-3 tabular-nums text-xs">₦{Number(p.price).toLocaleString()}</td>
+                <td className="p-3 tabular-nums text-xs">${Number(p.price_usd || 0).toLocaleString()}</td>
                 <td className="p-3 tabular-nums text-xs">{p.quantity_in_stock}</td>
                 <td className="p-3">
                   {p.is_active
@@ -132,6 +133,19 @@ function ProductForm({
     _sizes:   Array.isArray(initial.sizes)  ? initial.sizes.join(", ")  : "S, M, L, XL, XXL",
     _gallery: "",
   });
+  const [subCategories, setSubCategories] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (p.category_id) {
+      fetch(`/api/sub-categories/category/${p.category_id}`)
+        .then((r) => r.ok ? r.json() : Promise.reject())
+        .then((d) => setSubCategories(d.data || []))
+        .catch(() => setSubCategories([]));
+    } else {
+      setSubCategories([]);
+    }
+  }, [p.category_id]);
 
   function set<K extends keyof typeof p>(k: K, v: any) {
     setP((c) => ({ ...c, [k]: v }));
@@ -139,6 +153,17 @@ function ProductForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validate both prices are provided
+    if (!p.price || p.price <= 0) {
+      setError("NGN price must be greater than 0");
+      return;
+    }
+    if (!p.price_usd || p.price_usd <= 0) {
+      setError("USD price must be greater than 0");
+      return;
+    }
+
     onSave({
       ...p,
       colors:  p._colors.split(",").map((s) => s.trim()).filter(Boolean),
@@ -156,6 +181,7 @@ function ProductForm({
           <button onClick={onCancel} aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && <p className="text-sm text-destructive bg-destructive/10 p-3">{error}</p>}
           <Row label="Name"><input value={p.name ?? ""} onChange={(e) => set("name", e.target.value)} required className="inp" /></Row>
           <Row label="Slug"><input value={p.slug ?? ""} onChange={(e) => set("slug", e.target.value)} required className="inp" placeholder="e.g. the-monarch-fit" /></Row>
 
@@ -166,14 +192,16 @@ function ProductForm({
                 {categories.map((c) => <option key={c.slug} value={(c as any).id || c.slug}>{c.name}</option>)}
               </select>
             </Row>
-            <Row label="Sub-Category (for Suits)">
+            <Row label="Sub-Category">
               <select value={(p as any).sub_category ?? ""} onChange={(e) => set("sub_category" as any, e.target.value || null)} className="inp">
                 <option value="">— none —</option>
-                <option value="safari">Safari</option>
-                <option value="wedding">Wedding</option>
-                <option value="business">Business</option>
-                <option value="dinner">Dinner</option>
-                <option value="prom">Prom</option>
+                {subCategories.length > 0 ? (
+                  subCategories.map((sc) => (
+                    <option key={sc.id} value={sc.slug}>{sc.name}</option>
+                  ))
+                ) : (
+                  <option disabled>No sub-categories for this category</option>
+                )}
               </select>
             </Row>
           </div>
@@ -188,8 +216,8 @@ function ProductForm({
           </Row>
 
           <div className="grid grid-cols-3 gap-4">
-            <Row label="Price (₦)"><input type="number" value={p.price ?? 0} onChange={(e) => set("price", Number(e.target.value))} className="inp" /></Row>
-            <Row label="Currency"><input value={p.currency ?? "₦"} onChange={(e) => set("currency", e.target.value)} className="inp" /></Row>
+            <Row label="Price NGN (₦)"><input type="number" step="0.01" value={p.price ?? 0} onChange={(e) => set("price", Number(e.target.value))} required className="inp" /></Row>
+            <Row label="Price USD ($)"><input type="number" step="0.01" value={p.price_usd ?? 0} onChange={(e) => set("price_usd", Number(e.target.value))} required className="inp" /></Row>
             <Row label="Stock"><input type="number" value={p.quantity_in_stock ?? 0} onChange={(e) => set("quantity_in_stock", Number(e.target.value))} className="inp" /></Row>
           </div>
 
@@ -232,7 +260,7 @@ function ProductForm({
             <button type="submit" className="flex-1 bg-onyx text-cream py-3 text-xs tracking-[0.25em] uppercase hover:bg-gold hover:text-onyx transition-colors">Save</button>
           </div>
         </form>
-        <style>{`.inp{width:100%;padding:.6rem .75rem;border:1px solid var(--border);background:var(--background);font-size:.875rem;outline:none;border-radius:0}.inp:focus{border-color:var(--gold)}`}</style>
+        <style>{`.inp{width:100%;padding:.6rem .75rem;border:1px solid var(--border);background:#fff;color:#111;font-size:.875rem;outline:none;border-radius:0}.inp:focus{border-color:var(--gold)}.inp option{background:#fff;color:#111}`}</style>
       </aside>
     </div>
   );

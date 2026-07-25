@@ -17,12 +17,22 @@ function rowToProduct(r: any): Product {
 
   const image = r.main_image_url || (gallery[0] ?? "");
 
+  // Determine display price based on currency from API
+  const displayCurrency = r.display_currency || "NGN";
+  const displayPrice = displayCurrency === "USD" ? (r.price_usd || r.price) : r.price;
+  const currencySymbol = displayCurrency === "NGN" ? "₦" : "$";
+
   return {
     id: r.id,
     slug: r.slug,
     name: r.name,
     category: (r.category_slug || r.category || null) as Category,
+    sub_category: r.sub_category ?? null,
     price: Number(r.price),
+    price_usd: r.price_usd ? Number(r.price_usd) : undefined,
+    display_price: displayPrice,
+    display_currency: displayCurrency,
+    currency_symbol: currencySymbol,
     currency: r.currency || "₦",
     image,
     gallery: gallery.length ? gallery : [image].filter(Boolean),
@@ -44,7 +54,16 @@ export interface BackendCategory {
 }
 
 export function useCategories() {
-  const [data, setData] = useState<BackendCategory[]>([]);
+  const [data, setData] = useState<BackendCategory[]>(
+    staticCategories.map((c) => ({
+      id: c.key,
+      name: c.label,
+      slug: c.key,
+      description: c.tagline,
+      image_url: c.image,
+      tagline: c.tagline,
+    })),
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,7 +88,7 @@ export function useCategories() {
   return { categories: data, loading };
 }
 
-export function useProducts(filters?: { category?: string; search?: string }) {
+export function useProducts(filters?: { category?: string; subCategory?: string; search?: string }) {
   const [data, setData] = useState<Product[]>(staticProducts);
   const [loading, setLoading] = useState(true);
 
@@ -79,6 +98,7 @@ export function useProducts(filters?: { category?: string; search?: string }) {
       try {
         const params = new URLSearchParams();
         if (filters?.category) params.append("category", filters.category);
+        if (filters?.subCategory) params.append("subCategory", filters.subCategory);
         if (filters?.search) params.append("search", filters.search);
         const qs = params.toString();
         const res = await fetch(`${API_BASE}/api/products${qs ? `?${qs}` : ""}`);
@@ -96,7 +116,7 @@ export function useProducts(filters?: { category?: string; search?: string }) {
     })();
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters?.category, filters?.search]);
+  }, [filters?.category, filters?.subCategory, filters?.search]);
 
   return { products: data, loading };
 }

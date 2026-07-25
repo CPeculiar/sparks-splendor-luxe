@@ -6,23 +6,67 @@ export const Route = createFileRoute("/safari-lookbook")({
 });
 
 const LOOKBOOK_IMAGES = [
-  "safari-01.jpg",
-  "safari-02.jpg",
-  "safari-03.jpg",
-  "safari-04.jpg",
-  "safari-05.jpg",
-  "safari-06.jpg",
-  "safari-07.jpg",
-  "safari-08.jpg",
-  "safari-09.jpg",
-  ...[
-    "1413","1433","1506","1520","1532","1554","1558","1576",
-    "1614","1618","1650","1674","1694","1714","1755","1770",
-    "1774","1790","1832","1859","1865","1871","1927","1932",
-    "1962","1982","1992","1997","2006","2012","2040","2068",
-    "2089","2094","2127","2166","2186","2207","2214","2236",
-    "2293","2297","2348","2362","2395","2415","2460","2473",
-  ].map((n) => `TJD_${n}.jpg`),
+  "Safari_Classic_purple_safari_suit_1.jpg",
+  "Safari_Classic_purple_safari_suit_2.jpg",
+  "Safari_Classic_purple_safari_suit_3.jpg",
+  "Safari_Tailored_burgundy_safari_suit_1.jpg",
+  "Safari_Tailored_burgundy_safari_suit_2.jpg",
+  "Safari_Tailored_burgundy_safari_suit_3.jpg",
+  "Safari_The_AlphaCode_Burgundy_1.jpg",
+  "Safari_The_AlphaCode_Burgundy_2.jpg",
+  "Safari_The_AlphaCode_Burgundy_3.jpg",
+  "Safari_The_AlphaCode_Burgundy_4.jpg",
+  "Safari_The_AlphaCode_Burgundy_5.jpg",
+  "Safari_The_Hunter_Set_ChocolateBrown_1.jpg",
+  "Safari_The_Hunter_Set_ChocolateBrown_2.jpg",
+  "Safari_The_Hunter_Set_ChocolateBrown_3.jpg",
+  "Safari_The_Hunter_Set_ChocolateBrown_4.jpg",
+  "Safari_The_Hunter_Set_ChocolateBrown_5.jpg",
+  "Safari_The_Monarch_Fit_MintGreen_1.jpg",
+  "Safari_The_Monarch_Fit_MintGreen_2.jpg",
+  "Safari_The_Monarch_Fit_MintGreen_3.jpg",
+  "Safari_The_Monarch_Fit_MintGreen_4.jpg",
+  "Safari_The_Monarch_Fit_MintGreen_5.jpg",
+  "Safari_The_Monarch_Fit_LightPink_1.jpg",
+  "Safari_The_Monarch_Fit_LightPink_2.jpg",
+  "Safari_The_Monarch_Fit_LightPink_3.jpg",
+  "Safari_The_Monarch_Fit_LightPink_4.jpg",
+  "Safari_The_Monarch_Fit_LightPink_5.jpg",
+  "Safari_The_Monarch_Fit_LightPink_6.jpg",
+  "Safari_The_Monarch_Fit_Pink&Green_1.jpg",
+  "Safari_The_Monarch_Fit_Pink&Green_2.jpg",
+  "Safari_The_Monarch_Fit_Pink&Green_3.jpg",
+  "Safari_The_Power_Set_Green_1.jpg",
+  "Safari_The_Power_Set_Green_2.jpg",
+  "Safari_The_Power_Set_Green_3.jpg",
+  "Safari_The_Power_Set_Green_4.jpg",
+  "Safari_The_Power_Set_Green_5.jpg",
+  "Safari_The_Power_Set_Green_6.jpg",
+  "Safari_The_Power_Set_Orange_1.jpg",
+  "Safari_The_Power_Set_Orange_2.jpg",
+  "Safari_The_Power_Set_Orange_3.jpg",
+  "Safari_The_Power_Set_Orange_4.jpg",
+  "Safari_The_Power_Set_Orange_5.jpg",
+  "Safari_The_Power_Set_Green&Orange_1.jpg",
+  "Safari_The_Power_Set_Green&Orange_2.jpg",
+  "Safari_The_Power_Set_Green&Orange_3.jpg",
+  "Safari_The_Power_Set_Green&Orange_4.jpg",
+  "Safari_The_Power_Set_Green&Orange_5.jpg",
+  "Safari_The_Soverign_Fit_boldTeal_1.jpg",
+  "Safari_The_Soverign_Fit_boldTeal_2.jpg",
+  "Safari_The_Soverign_Fit_boldTeal_3.jpg",
+  "Safari_The_Soverign_Fit_boldTeal_4.jpg",
+  "Safari_The_Soverign_Fit_boldTeal_5.jpg",
+  "Safari_The_Soverign_Fit_Orchid_Pink_1.jpg",
+  "Safari_The_Soverign_Fit_Orchid_Pink_2.jpg",
+  "Safari_The_Soverign_Fit_Orchid_Pink_3.jpg",
+  "Safari_The_Soverign_Fit_Orchid_Pink_4.jpg",
+  "Safari_The_Soverign_Fit_Orchid_Pink_5.jpg",
+  "Safari_The_Soverign_Fit_Teal&Pink_1.jpg",
+  "Safari_The_Soverign_Fit_Teal&Pink_2.jpg",
+  "Safari_The_Soverign_Fit_Teal&Pink_3.jpg",
+  "Safari_The_Soverign_Fit_Teal&Pink_4.jpg",
+  "Safari_The_Soverign_Fit_Teal&Pink_5.jpg",
 ];
 
 const INITIAL_VISIBLE = 16;
@@ -35,7 +79,7 @@ function SafariLookbookPage() {
     <>
       <section className="relative h-[55vh] min-h-[420px] overflow-hidden">
         <img
-          src="/gallery/safari-code/safari-01.jpg"
+          src="/gallery-compressed/safari_suits/safari-cover-image-main.jpg"
           alt="Safari Code lookbook hero"
           className="absolute inset-0 w-full h-full object-cover object-top"
         />
@@ -77,7 +121,7 @@ function SafariLookbookPage() {
           {visibleImages.map((image) => (
             <img
               key={image}
-              src={`/gallery/safari-code/${image}`}
+              src={`/gallery-compressed/safari_suits/${image}`}
               alt="Safari Code lookbook"
               loading="lazy"
               decoding="async"

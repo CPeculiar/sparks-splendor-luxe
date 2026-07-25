@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ArrowRight, Star, Award, Scissors, Truck } from "lucide-react";
-import { useProducts } from "@/lib/db-products";
+import { useCategories, useProducts } from "@/lib/db-products";
 import { ProductCard } from "@/components/ProductCard";
 
 export const Route = createFileRoute("/")({
@@ -18,10 +18,10 @@ interface Slide {
   href: { to: "/shop"; search?: { category?: string } };
 }
 
-const SLIDES: Slide[] = [
+const SLIDES_FALLBACK: Slide[] = [
   {
     type: "video",
-    src: "/video/heroVideo.mp4",
+    src: "/gallery-compressed/Hero-assets/heroVideo.mp4",
     eyebrow: "Autumn / Winter Collection",
     title: "The Art of Bespoke",
     subtitle: "A house dedicated to the quiet authority of craftsmanship.",
@@ -30,7 +30,7 @@ const SLIDES: Slide[] = [
   },
   {
     type: "image",
-    src: "/gallery/img-05.jpg",
+    src: "/gallery-compressed/Hero-assets/heroImg-01.jpg",
     eyebrow: "Signature Suits",
     title: "Sculpted Tailoring",
     subtitle: "Architectural silhouettes hand-finished in our Lagos office.",
@@ -39,7 +39,7 @@ const SLIDES: Slide[] = [
   },
   {
     type: "image",
-    src: "/gallery/img-10.jpg",
+    src: "/gallery-compressed/Hero-assets/heroImg-02.jpg",
     eyebrow: "Heritage Reimagined",
     title: "Royal Natives",
     subtitle: "Hand-embroidered agbada and kaftans for the modern monarch.",
@@ -48,7 +48,7 @@ const SLIDES: Slide[] = [
   },
   {
     type: "image",
-    src: "/gallery/couple-02.jpg",
+    src: "/gallery-compressed/Hero-assets/heroImg-03.jpg",
     eyebrow: "Couture for Her",
     title: "Ladies Atelier",
     subtitle: "Aso-ebi & couture pieces sculpted in golden silk.",
@@ -57,32 +57,70 @@ const SLIDES: Slide[] = [
   },
   {
     type: "image",
-    src: "/gallery/img-40.jpg",
+    src: "/gallery-compressed/Hero-assets/heroImg-04.jpg",
     eyebrow: "Limited Edition",
     title: "The Rose Jewel",
     subtitle: "Hand-beaded silk wool — only nine pieces released worldwide.",
     cta: "Shop Limited",
     href: { to: "/shop" },
   },
+  {
+    type: "image",
+    src: "/gallery-compressed/Hero-assets/heroImg-05.jpg",
+    eyebrow: "Bespoke Craft",
+    title: "Made for Monarchs",
+    subtitle: "Every thread placed with intention. Every silhouette sculpted for you.",
+    cta: "Explore All",
+    href: { to: "/shop" },
+  },
 ];
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 function HeroCarousel() {
+  const [slides, setSlides] = useState<Slide[]>(SLIDES_FALLBACK);
   const [i, setI] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const advance = () => setI((p) => (p + 1) % SLIDES.length);
-  const back = () => setI((p) => (p - 1 + SLIDES.length) % SLIDES.length);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/hero-slides`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((d) => {
+        const rows = d?.data;
+        if (!Array.isArray(rows) || !rows.length) return;
+        setSlides(
+          rows.map((s: any) => ({
+            type: (s.type || (s.image_url?.match(/\.(mp4|webm|mov)/i) ? "video" : "image")) as "video" | "image",
+            src: s.src || s.image_url || "",
+            eyebrow: s.eyebrow || "",
+            title: s.title || "",
+            subtitle: s.subtitle || "",
+            cta: s.cta || s.cta_text || "Shop Now",
+            href: { to: "/shop", search: s.href_category ? { category: s.href_category } : undefined },
+          }))
+        );
+        setI(0);
+      })
+      .catch(() => { /* silently keep fallback slides */ });
+  }, []);
+
+  const advance = () => setI((p) => (p + 1) % slides.length);
+  const back = () => setI((p) => (p - 1 + slides.length) % slides.length);
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    const cur = SLIDES[i];
+    const cur = slides[i];
     if (cur.type === "video") {
       const v = videoRef.current;
+      if (v) {
+        v.currentTime = 0;
+        v.play().catch(() => {});
+      }
       const onEnd = () => advance();
       v?.addEventListener("ended", onEnd);
-      // fallback: if video doesn't end naturally within 14s, advance anyway
-      timer.current = setTimeout(advance, 14000);
+      // fallback: if video doesn't end naturally within 20s, advance anyway
+      timer.current = setTimeout(advance, 23000);
       return () => {
         v?.removeEventListener("ended", onEnd);
         if (timer.current) clearTimeout(timer.current);
@@ -94,8 +132,8 @@ function HeroCarousel() {
   }, [i]);
 
   // Pre-load next image to avoid black flash
-  const nextIdx = (i + 1) % SLIDES.length;
-  const nextSlide = SLIDES[nextIdx];
+  const nextIdx = (i + 1) % slides.length;
+  const nextSlide = slides[nextIdx];
 
   return (
     <section className="relative h-[100svh] min-h-[640px] w-full overflow-hidden bg-onyx text-cream">
@@ -104,7 +142,7 @@ function HeroCarousel() {
         <link rel="preload" as="image" href={nextSlide.src} />
       )}
 
-      {SLIDES.map((s, idx) => (
+      {slides.map((s, idx) => (
         <div
           key={idx}
           className={[
@@ -138,18 +176,18 @@ function HeroCarousel() {
       {/* content */}
       <div className="relative z-10 h-full container-luxe flex flex-col justify-end pb-20 md:pb-28">
         <div key={i} className="max-w-2xl animate-fade-up">
-          <p className="text-eyebrow text-gold mb-5">{SLIDES[i].eyebrow}</p>
+          <p className="text-eyebrow text-gold mb-5">{slides[i].eyebrow}</p>
           <h1 className="font-serif-luxe text-5xl sm:text-6xl md:text-7xl lg:text-[88px] leading-[1.02] tracking-tight">
-            {SLIDES[i].title}
+            {slides[i].title}
           </h1>
-          <p className="mt-5 text-base md:text-lg text-cream/80 max-w-lg leading-relaxed">{SLIDES[i].subtitle}</p>
+          <p className="mt-5 text-base md:text-lg text-cream/80 max-w-lg leading-relaxed">{slides[i].subtitle}</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              to={SLIDES[i].href.to}
-              search={SLIDES[i].href.search as never}
+              to={slides[i].href.to}
+              search={slides[i].href.search as never}
               className="group inline-flex items-center gap-3 bg-gold text-onyx px-8 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-cream transition-colors"
             >
-              {SLIDES[i].cta}
+              {slides[i].cta}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
@@ -172,7 +210,7 @@ function HeroCarousel() {
 
       {/* indicators */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2.5">
-        {SLIDES.map((_, idx) => (
+        {slides.map((_, idx) => (
           <button
             key={idx}
             onClick={() => setI(idx)}
@@ -184,7 +222,7 @@ function HeroCarousel() {
 
       {/* counter */}
       <div className="absolute bottom-6 right-6 z-20 hidden md:block text-xs tracking-[0.3em] text-cream/70 tabular-nums">
-        {String(i + 1).padStart(2, "0")} <span className="mx-2 text-gold">/</span> {String(SLIDES.length).padStart(2, "0")}
+        {String(i + 1).padStart(2, "0")} <span className="mx-2 text-gold">/</span> {String(slides.length).padStart(2, "0")}
       </div>
     </section>
   );
@@ -205,14 +243,37 @@ function MarqueeStrip() {
 }
 
 // ─── THE COLLECTIONS ────────────────────────────────────────────────────────
-const COLLECTION_CATS = [
-  { key: "safari",  label: "Safari Suits",  tagline: "Expedition Tailoring",  image: "/gallery/safari-code/safari-01.jpg" },
-  { key: "wedding", label: "Wedding Suits", tagline: "Sculpted for the Aisle", image: "/gallery/img-05.jpg" },
-  { key: "natives", label: "Natives",       tagline: "Heritage Reimagined",   image: "/gallery/img-10.jpg" },
-  { key: "ladies",  label: "Ladies",        tagline: "Couture for Her",       image: "/gallery/couple-02.jpg" },
+const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
+  suits:   "/gallery-compressed/safari_suits/safari-cover-image-main.jpg",
+  natives: "/gallery-compressed/natives/Native_NAA-001.jpg",
+  casuals: "/gallery-compressed/casuals/Casuals_CAA_001.jpg",
+  ladies:  "/gallery-compressed/Ladies/Ladies_suit_Brown_1.jpg",
+  agbada:  "/gallery-compressed/agbada/Agbada_AAA-001.jpg",
+  kaftan:  "/gallery-compressed/kaftan/Kaftan_KAF-001.jpg",
+  pants:   "/gallery-compressed/pants/Pant_PAA-001.jpg",
+};
+
+const COLLECTION_CATS_FALLBACK = [
+  { key: "suits",   label: "Suits",   tagline: "Expedition Tailoring",  image: CATEGORY_FALLBACK_IMAGES.suits },
+  { key: "natives", label: "Natives", tagline: "Heritage Reimagined",   image: CATEGORY_FALLBACK_IMAGES.natives },
+  { key: "casuals", label: "Casuals", tagline: "Quiet Luxury",          image: CATEGORY_FALLBACK_IMAGES.casuals },
+  { key: "ladies",  label: "Ladies",  tagline: "Couture for Her",       image: CATEGORY_FALLBACK_IMAGES.ladies },
 ];
 
 function CategoryGrid() {
+  const { categories } = useCategories();
+  const cards = categories.length
+    ? categories
+        .filter((c) => Boolean(c.slug))
+        .slice(0, 4)
+        .map((c) => ({
+          key: c.slug,
+          label: c.name,
+          tagline: c.tagline || c.description || "Bespoke craft.",
+          image: c.image_url || CATEGORY_FALLBACK_IMAGES[c.slug] || "/gallery-compressed/safari_suits/safari-cover-image-main.jpg",
+        }))
+    : COLLECTION_CATS_FALLBACK;
+
   return (
     <section className="container-luxe py-20 md:py-28">
       <div className="text-center max-w-2xl mx-auto mb-14">
@@ -222,7 +283,7 @@ function CategoryGrid() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
-        {COLLECTION_CATS.map((c, idx) => (
+        {cards.map((c, idx) => (
           <Link
             key={c.key}
             to="/shop"
@@ -258,13 +319,14 @@ const NEW_IN_ROW = COLS; // one row = 4 items
 
 function NewIn() {
   const { products } = useProducts();
-  const list = products.slice(0, NEW_IN_ROW * 2); // max 2 rows worth
-  const [showExtra, setShowExtra] = useState(false);
+  const list = products;
+  const [visibleCount, setVisibleCount] = useState(NEW_IN_ROW);
 
   // Reset to one row on mount (handles refresh / navigation back)
-  useEffect(() => { setShowExtra(false); }, []);
+  useEffect(() => { setVisibleCount(NEW_IN_ROW); }, []);
 
-  const visible = showExtra ? list : list.slice(0, NEW_IN_ROW);
+  const visible = list.slice(0, visibleCount);
+  const hasMore = visibleCount < list.length;
 
   return (
     <section className="bg-secondary/30 py-20 md:py-28">
@@ -282,10 +344,10 @@ function NewIn() {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
           {visible.map((p) => <ProductCard key={p.id} product={p} />)}
         </div>
-        {!showExtra && list.length > NEW_IN_ROW && (
+        {hasMore && (
           <div className="mt-12 text-center">
             <button
-              onClick={() => setShowExtra(true)}
+              onClick={() => setVisibleCount((count) => count + NEW_IN_ROW)}
               className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
             >
               Load More
@@ -298,12 +360,8 @@ function NewIn() {
 }
 
 // ─── SUITS SECTION ───────────────────────────────────────────────────────────
-const SUIT_TABS = [
-  { key: "safari",   label: "Safari" },
-  { key: "wedding",  label: "Wedding" },
-  { key: "business", label: "Business" },
-  { key: "dinner",   label: "Dinner" },
-  { key: "prom",     label: "Prom" },
+const SUIT_TABS_FALLBACK = [
+  { key: "all", label: "All" },
 ];
 
 const SUITS_PER_ROW = 4;
@@ -311,23 +369,53 @@ const SUITS_INITIAL_ROWS = 3;
 
 function SuitsSection() {
   const { products } = useProducts({ category: "suits" });
-  const [activeTab, setActiveTab] = useState("safari");
+  const { categories } = useCategories();
+  const [tabs, setTabs] = useState<{ key: string; label: string }[]>(SUIT_TABS_FALLBACK);
+  const [activeTab, setActiveTab] = useState("all");
   const [visibleRows, setVisibleRows] = useState(SUITS_INITIAL_ROWS);
 
   // Reset rows when tab changes or on mount
   useEffect(() => { setVisibleRows(SUITS_INITIAL_ROWS); }, [activeTab]);
 
-  // Filter by sub-category tag; since static products don't have sub-tags,
-  // we cycle through all suits and assign them to tabs by index for demo purposes.
-  // In production the product.sub_category field would be used.
+  useEffect(() => {
+    async function loadSuitTabs() {
+      try {
+        const suitsCategory = categories.find((c) => c.slug === "suits");
+        if (!suitsCategory?.id) {
+          setTabs(SUIT_TABS_FALLBACK);
+          return;
+        }
+
+        const res = await fetch(`/api/sub-categories/category/${suitsCategory.id}`);
+        if (!res.ok) {
+          setTabs(SUIT_TABS_FALLBACK);
+          return;
+        }
+
+        const json = await res.json();
+        const next = Array.isArray(json?.data)
+          ? json.data.map((sc: any) => ({ key: sc.slug, label: sc.name }))
+          : [];
+
+        setTabs(next.length ? [{ key: "all", label: "All" }, ...next] : SUIT_TABS_FALLBACK);
+      } catch {
+        setTabs(SUIT_TABS_FALLBACK);
+      }
+    }
+
+    void loadSuitTabs();
+  }, [categories]);
+
+  useEffect(() => {
+    if (!tabs.some((t) => t.key === activeTab)) {
+      setActiveTab("all");
+    }
+  }, [tabs, activeTab]);
+
   const allSuits = products;
-  const tabFiltered = allSuits.filter((_, idx) => {
-    // Use modulo to distribute static products across tabs for visual demo
-    const tabIdx = SUIT_TABS.findIndex((t) => t.key === activeTab);
-    return idx % SUIT_TABS.length === tabIdx || allSuits.length <= SUIT_TABS.length;
-  });
-  // If filtering yields nothing (e.g. backend has sub_category field), fall back to all suits
-  const displayed = tabFiltered.length > 0 ? tabFiltered : allSuits;
+  const displayed = activeTab === "all"
+    ? allSuits
+    : allSuits.filter((p) => p.sub_category === activeTab);
 
   const maxVisible = visibleRows * SUITS_PER_ROW;
   const visible = displayed.slice(0, maxVisible);
@@ -344,7 +432,7 @@ function SuitsSection() {
 
       {/* sub-category tabs */}
       <div className="flex items-center justify-center gap-1 md:gap-2 mb-12 border-b border-border">
-        {SUIT_TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
@@ -389,19 +477,15 @@ function CategoryRow({ title, eyebrow, category, shopSearch }: {
   shopSearch: Record<string, string>;
 }) {
   const { products } = useProducts({ category });
-  const [showMore, setShowMore] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(CAT_ROW_INITIAL);
 
   // Reset on mount (refresh / navigate back)
-  useEffect(() => { setShowMore(false); }, []);
+  useEffect(() => { setVisibleCount(CAT_ROW_INITIAL); }, [category]);
 
-  // Cycle images if fewer than needed — reuse existing ones
-  const pool = products.length > 0 ? products : [];
-  if (!pool.length) return null;
+  if (!products.length) return null;
 
-  // Pad to at least 8 by cycling
-  const padded = Array.from({ length: CAT_ROW_INITIAL + CAT_ROW_MORE }, (_, i) => pool[i % pool.length]);
-  const visible = showMore ? padded : padded.slice(0, CAT_ROW_INITIAL);
-  const hasMore = !showMore && padded.length > CAT_ROW_INITIAL;
+  const visible = products.slice(0, visibleCount);
+  const hasMore = visibleCount < products.length;
 
   return (
     <section className="container-luxe py-16 md:py-20 border-t border-border/40">
@@ -421,7 +505,7 @@ function CategoryRow({ title, eyebrow, category, shopSearch }: {
       {hasMore && (
         <div className="mt-12 text-center">
           <button
-            onClick={() => setShowMore(true)}
+            onClick={() => setVisibleCount((count) => count + CAT_ROW_MORE)}
             className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
           >
             Load More
@@ -437,7 +521,7 @@ function EditorialBanner() {
     <section className="container-luxe py-20 md:py-28">
       <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         <div className="relative aspect-[4/5] overflow-hidden">
-          <img src="/gallery/couple-01.jpg" alt="Heritage editorial" className="w-full h-full object-cover object-top" />
+          <img src="/gallery-compressed/dinner_suits/Dinner_Suits_Military_look_1.jpg" alt="Heritage editorial" className="w-full h-full object-cover object-top" />
           <div className="absolute top-4 left-4 bg-cream/95 px-3 py-1 text-[10px] tracking-[0.3em] uppercase">Editorial</div>
         </div>
         <div className="lg:pl-10">
@@ -476,7 +560,7 @@ function EditorialBanner() {
 function PromoBanner() {
   return (
     <section className="relative h-[60vh] min-h-[420px] overflow-hidden">
-      <img src="/gallery/img-15.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
+      <img src="/gallery-compressed/Hero-assets/heroImg-05.jpg" alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
       <div className="absolute inset-0 bg-onyx/60" />
       <div className="relative z-10 h-full container-luxe flex flex-col items-center justify-center text-center text-cream">
         <p className="text-eyebrow text-gold">Exclusive Offer</p>
