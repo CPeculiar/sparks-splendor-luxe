@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Plus, Trash2, Edit } from "lucide-react";
 import { fetchCategories, createCategory, updateCategory, deleteCategory, type AdminCategory } from "@/lib/admin";
-import { CloudinaryUpload } from "@/components/CloudinaryUpload";
+import { MediaSelector } from "@/components/MediaSelector";
 
 export const Route = createFileRoute("/admin/categories")({ component: AdminCategories });
 
@@ -107,7 +107,7 @@ function AdminCategories() {
             <input required className="inp mb-4" value={editing.name || ""} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Category Name" disabled={submitting} />
             <textarea className="inp mb-4" value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} placeholder="Description (optional)" disabled={submitting} />
             <div className="mb-4">
-              <CloudinaryUpload label="Upload image" onUpload={(url) => setEditing({ ...editing, image_url: url })} />
+              <MediaSelector label="Category Image" onSelect={(url) => setEditing({ ...editing, image_url: url })} value={editing.image_url} />
             </div>
             {editing.id && (
               <label className="flex items-center gap-2 mb-4">

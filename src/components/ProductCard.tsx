@@ -3,11 +3,16 @@ import { ShoppingBag } from "lucide-react";
 import type { Product } from "@/lib/products";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
+import { PriceDisplay } from "./PriceDisplay";
 
 export function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const { add } = useCart();
   const { format } = useCurrency();
   const second = product.gallery[1] ?? product.image;
+
+  // Determine which price to show based on currency
+  const currentPrice = product.display_currency === "USD" ? product.price_usd || product.price : product.price;
+  const originalPrice = product.display_currency === "USD" ? product.original_price_usd : product.original_price;
 
   return (
     <div className="group relative">
@@ -51,10 +56,13 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         >
           {product.name}
         </Link>
-        <p className="text-sm mt-1 tabular-nums">
-          {product.currency_symbol}
-          {Math.round(product.display_price).toLocaleString()}
-        </p>
+        <div className="text-sm mt-1">
+          <PriceDisplay
+            price={currentPrice}
+            originalPrice={originalPrice}
+            currency={product.currency_symbol}
+          />
+        </div>
       </div>
     </div>
   );

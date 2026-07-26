@@ -66,6 +66,7 @@ function AdminSubCategories() {
           category_id: sc.category_id,
           name: sc.name,
           description: sc.description,
+          sort_order: typeof sc.sort_order === "number" ? sc.sort_order : 0,
           is_active: sc.is_active !== undefined ? sc.is_active : true,
         }),
       });

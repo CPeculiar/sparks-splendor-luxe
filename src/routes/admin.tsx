@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, Link, useRouterState, useNavigate, redirect } from "@tanstack/react-router";
+import { useState } from "react";
 import { LayoutDashboard, Package, ShoppingBag, Receipt, Users, LogOut, ShieldCheck, Sparkles, Tags, Image, Sliders, BarChart3, FileText, Bell, BookOpen, Database, Settings, Mail, MessageSquare, Star, MapPin } from "lucide-react";
 import { getCurrentUser, isAuthenticated, logout } from "@/lib/auth";
 
@@ -61,13 +62,29 @@ function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const user = getCurrentUser();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (pathname === "/admin/login") return <Outlet />;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-secondary/20 flex flex-col lg:flex-row">
-      <aside className="lg:w-72 lg:min-h-[calc(100vh-4rem)] bg-onyx text-cream flex lg:flex-col overflow-y-auto">
-        <div className="p-5 border-b border-cream/10 hidden lg:block sticky top-0 bg-onyx">
+    <div className="min-h-[calc(100vh-4rem)] bg-secondary/20 flex flex-row">
+      {/* Mobile sidebar toggle */}
+      <div className="md:hidden fixed top-16 left-4 z-40 bg-onyx text-cream p-2 rounded">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1 hover:text-gold">
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Sidebar */}
+      <aside className={`
+        w-72 bg-onyx text-cream flex flex-col fixed md:relative top-16 md:top-0 left-0 h-[calc(100vh-4rem)]
+        z-30 md:z-0
+        transition-transform duration-300
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
+        <div className="p-5 border-b border-cream/10 sticky top-0 bg-onyx">
           <div className="flex items-center gap-2">
             {user?.role === "super_admin" && <ShieldCheck className="h-4 w-4 text-gold" />}
             <p className="text-eyebrow text-gold capitalize">{user?.role?.replace("_", " ") || "Admin"}</p>
@@ -75,11 +92,12 @@ function AdminLayout() {
           <h2 className="font-display text-xl mt-1">Sparks &amp; Splendour</h2>
           <p className="text-xs text-cream/50 mt-1 truncate">{user?.email}</p>
         </div>
-        <nav className="flex lg:flex-col flex-1 overflow-x-auto lg:overflow-visible">
+
+        <nav className="flex flex-col flex-1 overflow-y-auto">
           {NAV.map((n, i) => {
             if ("type" in n && n.type === "section") {
               return (
-                <div key={i} className="hidden lg:block px-5 pt-4 pb-2 text-[10px] tracking-[0.2em] uppercase text-cream/40 font-semibold mt-2 border-t border-cream/10">
+                <div key={i} className="px-5 pt-4 pb-2 text-[10px] tracking-[0.2em] uppercase text-cream/40 font-semibold mt-2 border-t border-cream/10">
                   {n.label}
                 </div>
               );
@@ -91,18 +109,20 @@ function AdminLayout() {
               <Link
                 key={n.to}
                 to={n.to}
+                onClick={() => setSidebarOpen(false)}
                 className={[
-                  "flex items-center gap-3 px-5 py-3 text-sm tracking-wide whitespace-nowrap border-l-2 transition-colors",
+                  "flex items-center gap-3 px-5 py-3 text-sm tracking-wide border-l-2 transition-colors",
                   active ? "border-gold bg-cream/5 text-gold" : "border-transparent text-cream/70 hover:text-cream hover:bg-cream/5",
                 ].join(" ")}
               >
                 <n.icon className="h-4 w-4 flex-shrink-0" />
-                {n.label}
+                <span>{n.label}</span>
               </Link>
             );
           })}
         </nav>
-        <div className="hidden lg:block p-4 border-t border-cream/10 sticky bottom-0 bg-onyx">
+
+        <div className="p-4 border-t border-cream/10 sticky bottom-0 bg-onyx">
           <button
             onClick={() => { logout(); navigate({ to: "/admin/login" }); }}
             className="flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-cream/70 hover:text-gold w-full"
@@ -111,7 +131,17 @@ function AdminLayout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 overflow-x-auto">
+
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-onyx/60 z-20 top-16"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main content */}
+      <main className="flex-1 p-4 md:p-8 overflow-auto md:ml-0">
         <Outlet />
       </main>
     </div>

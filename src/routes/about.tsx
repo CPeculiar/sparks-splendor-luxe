@@ -23,19 +23,20 @@ function AboutPage() {
           <h2 className="font-display text-4xl md:text-5xl mt-3 leading-tight">A philosophy of quiet luxury.</h2>
         </div>
         <div className="lg:col-span-7 space-y-5 text-muted-foreground leading-relaxed">
-          <p>
-            Sparks & Splendour was founded on a belief that true elegance whispers. Born in the
-            cultural confluence of Anambra and trained across ateliers from Anambra to Lagos,
-            our House crafts garments that hold story, structure and soul.
+          <p style={{ textAlign: 'justify' }}>
+            Sparks and Splendour is a bespoke fashion house born in the bustling city of Lagos, Nigeria. 
+            Since its inception in 2019, we have proudly crafted exceptional garments for over 10,000 men and women across six continents.
+          </p>
+          <p style={{ textAlign: 'justify' }}>
+            Built on the timeless values of craftsmanship, resilience, hard work, and an unwavering pursuit of excellence, 
+            every piece we create reflects our commitment to quality over convenience.
+           Each commission begins with a conversation—not a pattern. We understand the person before we measure the cloth. 
+           From impeccably tailored suits to regal traditional attire and royal aso-ebi, every garment passes through meticulous stages of 
+           craftsmanship and hours of detailed finishing before it earns the Sparks and Splendour seal.
           </p>
           <p>
-            Each commission begins with a conversation — never a pattern. We measure intent
-            before measuring cloth. From sculpted suits to royal aso-ebi, every piece passes
-            through nine stages of bench work and fifteen hours of finishing before it is
-            considered worthy of our seal.
-          </p>
-          <p>
-            We do not chase trends. We build wardrobes that endure — the way heirlooms should.
+            We do not chase trends. We create timeless wardrobes that outlive seasons—pieces designed to be worn with 
+            confidence today and remembered for generations, just as true heirlooms should.
           </p>
         </div>
       </section>
@@ -49,11 +50,12 @@ function AboutPage() {
             <div className="mt-8 space-y-6 text-cream/75">
               <div>
                 <h3 className="font-display text-xl text-gold">Our Mission</h3>
-                <p className="mt-2 leading-relaxed">To elevate the craft of African luxury menswear and couture through uncompromising bespoke standards.</p>
+                <p className="mt-2 leading-relaxed">To deliver unparalleled excelence in bespoke and urban fashion, providing each customer 
+                  with personalized, high-quality garments that reflect their unique style and preferences.</p>
               </div>
               <div>
                 <h3 className="font-display text-xl text-gold">Our Vision</h3>
-                <p className="mt-2 leading-relaxed">A world where heritage textiles command the same reverence as the great Houses of Europe.</p>
+                <p className="mt-2 leading-relaxed">To deliver confidence in every stitch, tailoring not just clothes, but personal stories of style and self-expression.</p>
               </div>
             </div>
           </div>

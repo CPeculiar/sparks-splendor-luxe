@@ -38,12 +38,12 @@ function AdminInventory() {
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-left">
             <tr>
-              { ["Product", "SKU", "Stock", "Price", "Active", "Actions"].map(h => <th key={h} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>) }
+              { ["Product", "SKU", "Stock", "Price NGN", "Price USD", "Active", "Actions"].map(h => <th key={h} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>) }
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading…</td></tr>}
-            {!loading && !items.length && <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No products found.</td></tr>}
+            {loading && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading…</td></tr>}
+            {!loading && !items.length && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No products found.</td></tr>}
             {items.map((p) => (
               <tr key={p.id} className="border-t border-border hover:bg-secondary/20">
                 <td className="p-3 font-medium">{p.name}</td>
@@ -52,6 +52,7 @@ function AdminInventory() {
                   <input defaultValue={p.quantity_in_stock} type="number" className="w-20 border border-border px-2 py-1" id={`qty-${p.id}`} />
                 </td>
                 <td className="p-3 tabular-nums">₦{Number(p.price).toLocaleString()}</td>
+                <td className="p-3 tabular-nums">${Number(p.price_usd || 0).toFixed(2)}</td>
                 <td className="p-3">{p.is_active ? "Yes" : "No"}</td>
                 <td className="p-3 text-right">
                   <button onClick={() => save(p, Number((document.getElementById(`qty-${p.id}`) as HTMLInputElement).value))} className="px-3 py-2 bg-onyx text-cream text-xs">Save</button>

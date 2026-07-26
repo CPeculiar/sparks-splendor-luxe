@@ -1,25 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Plus, Trash2, Edit } from "lucide-react";
-import { fetchPermissionGroup, fetchPermissionGroups, fetchUsers, assignUserPermissionGroup, unassignUserPermissionGroup, type AdminPermissionGroup, type AdminUser } from "@/lib/admin";
+import { useEffect, useState } from "react";
+import { Plus, Edit, Trash2, Check } from "lucide-react";
+import { call } from "@/lib/auth";
 
 export const Route = createFileRoute("/admin/permissions")({ component: AdminPermissions });
 
+interface Permission {
+  id?: string;
+  name: string;
+  description?: string;
+  permissions: Record<string, string[]>;
+  is_active?: boolean;
+}
+
 function AdminPermissions() {
-  const [groups, setGroups] = useState<AdminPermissionGroup[]>([]);
-  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [groups, setGroups] = useState<Permission[]>([]);
+  const [availablePerms, setAvailablePerms] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<AdminPermissionGroup | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [editing, setEditing] = useState<Permission | null>(null);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void loadData();
+  }, []);
 
-  async function load() {
-    setLoading(true); setError(null);
+  async function loadData() {
+    setLoading(true);
+    setError(null);
     try {
-      setGroups(await fetchPermissionGroups());
-      setUsers((await fetchUsers()).data);
+      const [perms, avail] = await Promise.all([
+        call<{ data: Permission[] }>("GET", "/api/permissions"),
+        call<{ data: Record<string, string[]> }>("GET", "/api/permissions/available"),
+      ]);
+      setGroups(perms.data || []);
+      setAvailablePerms(avail.data || {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -27,150 +41,196 @@ function AdminPermissions() {
     }
   }
 
-  async function handleSelectGroup(groupId: string) {
-    if (!groupId) {
-      setSelectedGroup(null);
-      return;
-    }
+  async function saveGroup(group: Permission) {
     try {
-      const group = await fetchPermissionGroup(groupId);
-      setSelectedGroup(group);
+      if (group.id) {
+        const r = await call<{ data: Permission }>("PUT", `/api/permissions/${group.id}`, group);
+        setGroups(groups.map(g => g.id === group.id ? r.data : g));
+      } else {
+        const r = await call<{ data: Permission }>("POST", "/api/permissions", group);
+        setGroups([...groups, r.data]);
+      }
+      setEditing(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load group");
+      alert(e instanceof Error ? e.message : "Failed to save");
     }
   }
 
-  async function handleAssign() {
-    if (!selectedGroup || !selectedUserId) return;
+  async function deleteGroup(id: string | undefined) {
+    if (!id || !confirm("Delete this permission group?")) return;
     try {
-      await assignUserPermissionGroup(selectedUserId, selectedGroup.id);
-      setSelectedUserId("");
-      await load();
-      await handleSelectGroup(selectedGroup.id);
+      await call("DELETE", `/api/permissions/${id}`);
+      setGroups(groups.filter(g => g.id !== id));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to assign");
+      alert(e instanceof Error ? e.message : "Failed to delete");
     }
   }
 
-  async function handleUnassign(groupId: string, userId: string) {
-    try {
-      await unassignUserPermissionGroup(userId, groupId);
-      await load();
-      if (selectedGroup?.id === groupId) await handleSelectGroup(groupId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to remove assignment");
-    }
-  }
-
-  const members = useMemo(() => selectedGroup?.users ?? [], [selectedGroup]);
+  if (loading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between flex-wrap gap-4">
+      <header className="flex items-center justify-between">
         <div>
-          <p className="text-eyebrow">Admins</p>
-          <h1 className="font-display text-3xl md:text-4xl mt-1">Roles & Permissions</h1>
+          <p className="text-eyebrow">Access Control</p>
+          <h1 className="font-display text-3xl mt-1">Permission Groups</h1>
+          <p className="text-sm text-muted-foreground mt-1">Create and manage permission groups for admin roles</p>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-xs text-muted-foreground">
-          <ShieldCheck className="h-4 w-4 text-gold" /> Super admin can assign roles and permission groups.
-        </div>
+        <button
+          onClick={() => setEditing({ name: "", description: "", permissions: {}, is_active: true })}
+          className="inline-flex items-center gap-2 bg-gold text-onyx px-4 py-2 text-xs font-medium uppercase hover:bg-gold/90"
+        >
+          <Plus className="h-4 w-4" /> New Group
+        </button>
       </header>
 
-      {error && <p className="text-sm text-destructive bg-destructive/10 p-3">{error}</p>}
+      {error && <div className="bg-destructive/10 text-destructive p-3 rounded text-sm">{error}</div>}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-4">
-          <div className="bg-background border border-border p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Permission groups</h2>
-              <span className="text-xs text-muted-foreground">{groups.length} groups</span>
-            </div>
-            <div className="space-y-3">
-              {loading && <p className="text-xs text-muted-foreground">Loading groups…</p>}
-              {!loading && !groups.length && <p className="text-xs text-muted-foreground">No permission groups created yet.</p>}
-              {groups.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  onClick={() => setSelectedGroup(group)}
-                  className={`w-full text-left p-3 border ${selectedGroup?.id === group.id ? "border-gold bg-gold/10" : "border-border bg-background"}`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{group.name}</p>
-                      <p className="text-xs text-muted-foreground">{group.user_count} users</p>
-                    </div>
-                    <Edit className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {selectedGroup && (
-            <div className="bg-background border border-border p-4">
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Selected group</p>
-                  <h2 className="font-semibold">{selectedGroup.name}</h2>
-                </div>
-                <span className="text-xs text-muted-foreground">{selectedGroup.is_default ? "Default" : "Custom"}</span>
-              </div>
-              <pre className="rounded border border-border bg-secondary/10 p-3 text-[11px] overflow-x-auto">{JSON.stringify(selectedGroup.permissions || {}, null, 2)}</pre>
-            </div>
-          )}
+      {groups.length === 0 ? (
+        <div className="bg-background border border-border p-12 text-center">
+          <p className="text-muted-foreground">No permission groups yet</p>
         </div>
-
-        <aside className="space-y-4">
-          <div className="bg-background border border-border p-4">
-            <h2 className="font-semibold mb-3">Assign user to group</h2>
-            <div className="space-y-3">
-              <select
-                value={selectedGroup?.id ?? ""}
-                onChange={(e) => void handleSelectGroup(e.target.value)}
-                className="inp w-full"
-              >
-                <option value="">Select group</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>{group.name}</option>
-                ))}
-              </select>
-              <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className="inp w-full"
-              >
-                <option value="">Select user</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>{user.email}</option>
-                ))}
-              </select>
-              <button type="button" onClick={handleAssign} className="w-full bg-onyx text-cream py-3 text-xs uppercase tracking-[0.2em] hover:bg-gold hover:text-onyx">Assign</button>
-            </div>
-          </div>
-
-          {selectedGroup && (
-            <div className="bg-background border border-border p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold">Group members</h2>
-                <span className="text-xs text-muted-foreground">{members.length}</span>
+      ) : (
+        <div className="space-y-3">
+          {groups.map((group) => (
+            <div key={group.id} className="bg-background border border-border p-4 space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="font-medium">{group.name}</p>
+                  <p className="text-xs text-muted-foreground">{group.description}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditing(group)}
+                    className="p-2 hover:text-gold transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteGroup(group.id)}
+                    className="p-2 hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              {!members.length && <p className="text-xs text-muted-foreground">No users assigned yet.</p>}
-              <div className="space-y-3">
-                {members.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between gap-3 rounded border border-border p-3">
-                    <div>
-                      <p className="font-medium text-sm">{user.first_name || "—"} {user.last_name || ""}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                    <button type="button" onClick={() => handleUnassign(selectedGroup.id, user.id)} className="text-xs text-destructive">Remove</button>
+
+              {/* Permissions summary */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {Object.entries(group.permissions || {}).map(([resource, actions]) => (
+                  <div key={resource} className="text-xs bg-secondary/20 p-2 rounded">
+                    <p className="font-semibold capitalize">{resource}</p>
+                    <p className="text-muted-foreground">{(Array.isArray(actions) ? actions : []).join(", ")}</p>
                   </div>
                 ))}
               </div>
             </div>
-          )}
-        </aside>
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-onyx/60" onClick={() => setEditing(null)} />
+          <div className="relative bg-background w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="font-display text-2xl mb-6">{editing.id ? "Edit Group" : "New Group"}</h2>
+
+            <div className="space-y-6">
+              {/* Name and description */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Group Name *</label>
+                  <input
+                    type="text"
+                    value={editing.name}
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="inp w-full"
+                    placeholder="e.g., Content Manager"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground block mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={editing.description || ""}
+                    onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                    className="inp w-full"
+                    placeholder="What is this group for?"
+                  />
+                </div>
+              </div>
+
+              {/* Permissions checkboxes */}
+              <div>
+                <p className="text-sm font-semibold mb-3">Permissions</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.entries(availablePerms).map(([resource, actions]) => (
+                    <div key={resource} className="border border-border p-3 rounded space-y-2">
+                      <p className="font-semibold capitalize text-sm">{resource}</p>
+                      {actions.map((action) => (
+                        <label key={`${resource}-${action}`} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={
+                              (editing.permissions?.[resource] || []).includes(action)
+                            }
+                            onChange={(e) => {
+                              const current = editing.permissions?.[resource] || [];
+                              let updated: string[];
+                              if (e.target.checked) {
+                                updated = [...current, action];
+                              } else {
+                                updated = current.filter(a => a !== action);
+                              }
+                              setEditing({
+                                ...editing,
+                                permissions: {
+                                  ...editing.permissions,
+                                  [resource]: updated,
+                                },
+                              });
+                            }}
+                            className="w-4 h-4"
+                          />
+                          <span className="text-sm capitalize">{action}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Active toggle */}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={editing.is_active !== false}
+                  onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">Active</span>
+              </label>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 pt-6 border-t border-border mt-6">
+              <button
+                onClick={() => setEditing(null)}
+                className="flex-1 py-2 border border-border hover:border-gold text-sm transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveGroup(editing)}
+                className="flex-1 py-2 bg-gold text-onyx text-sm font-medium hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"
+              >
+                <Check className="h-4 w-4" /> Save Group
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

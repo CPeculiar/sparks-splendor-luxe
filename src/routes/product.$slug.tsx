@@ -4,6 +4,7 @@ import { Heart, Minus, Plus, Ruler, Shield, Star, Truck, ChevronRight, X } from 
 import { useProduct } from "@/lib/db-products";
 import { getRelated } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
+import { PriceDisplay } from "@/components/PriceDisplay";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
 import { getAuthToken, isAuthenticated, getCurrentUser } from "@/lib/auth";
@@ -215,7 +216,13 @@ function ProductPage() {
             <span className="text-xs text-muted-foreground">({reviews.length} {reviews.length === 1 ? "review" : "reviews"})</span>
           </div>
 
-          <p className="text-2xl font-display mt-5 tabular-nums">{product.currency_symbol}{Math.round(product.display_price).toLocaleString()}</p>
+          <p className="text-2xl font-display mt-5">
+            <PriceDisplay
+              price={product.display_currency === "USD" ? product.price_usd || product.price : product.price}
+              originalPrice={product.display_currency === "USD" ? product.original_price_usd : product.original_price}
+              currency={product.currency_symbol}
+            />
+          </p>
           <p className="text-xs text-muted-foreground mt-1">Tax included. Bespoke fittings complimentary.</p>
 
           <p className="mt-6 text-muted-foreground leading-relaxed">{product.description}</p>

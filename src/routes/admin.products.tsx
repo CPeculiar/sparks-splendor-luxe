@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, X } from "lucide-react";
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct, type AdminProduct } from "@/lib/admin";
 import { useCategories } from "@/lib/db-products";
-import { CloudinaryUpload } from "@/components/CloudinaryUpload";
+import { MediaSelector } from "@/components/MediaSelector";
+import { MultiMediaSelector } from "@/components/MultiMediaSelector";
 
 export const Route = createFileRoute("/admin/products")({
   component: AdminProducts,
@@ -127,18 +128,19 @@ function ProductForm({
   onCancel: () => void;
   onSave: (p: FormProduct) => void | Promise<void>;
 }) {
-  const [p, setP] = useState<FormProduct & { _colors: string; _sizes: string; _gallery: string }>({
+  const [p, setP] = useState<FormProduct & { _colors: string; _sizes: string; _galleryList: string[] }>({
     ...initial,
     _colors:  Array.isArray(initial.colors) ? initial.colors.join(", ") : "",
     _sizes:   Array.isArray(initial.sizes)  ? initial.sizes.join(", ")  : "S, M, L, XL, XXL",
-    _gallery: "",
+    _galleryList: Array.isArray(initial.gallery) ? initial.gallery : [],
   });
   const [subCategories, setSubCategories] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (p.category_id) {
-      fetch(`/api/sub-categories/category/${p.category_id}`)
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+      fetch(`${API_BASE}/api/sub-categories/category/${p.category_id}`)
         .then((r) => r.ok ? r.json() : Promise.reject())
         .then((d) => setSubCategories(d.data || []))
         .catch(() => setSubCategories([]));
@@ -168,7 +170,7 @@ function ProductForm({
       ...p,
       colors:  p._colors.split(",").map((s) => s.trim()).filter(Boolean),
       sizes:   p._sizes.split(",").map((s) => s.trim()).filter(Boolean),
-      gallery: p._gallery ? p._gallery.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+      gallery: p._galleryList && p._galleryList.length > 0 ? p._galleryList : undefined,
     });
   }
 
@@ -221,20 +223,26 @@ function ProductForm({
             <Row label="Stock"><input type="number" value={p.quantity_in_stock ?? 0} onChange={(e) => set("quantity_in_stock", Number(e.target.value))} className="inp" /></Row>
           </div>
 
-          <CloudinaryUpload
-            label="Upload main image"
-            accept="image/*"
-            onUpload={(url) => set("main_image_url", url)}
+          <div className="bg-secondary/20 p-3 rounded border border-secondary/50 text-xs text-muted-foreground">
+            <p className="font-semibold mb-2">💰 Price Slash Effect (Optional)</p>
+            <p>Leave blank to show regular prices. Fill these to show original price struck-out with sale price.</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Row label="Original Price NGN (struck-out)"><input type="number" step="0.01" value={(p as any).original_price ?? ""} onChange={(e) => set("original_price" as any, e.target.value ? Number(e.target.value) : null)} className="inp" placeholder="e.g. 500000" /></Row>
+            <Row label="Original Price USD (struck-out)"><input type="number" step="0.01" value={(p as any).original_price_usd ?? ""} onChange={(e) => set("original_price_usd" as any, e.target.value ? Number(e.target.value) : null)} className="inp" placeholder="e.g. 500" /></Row>
+          </div>
+
+          <MediaSelector
+            label="Main Image"
+            onSelect={(url) => set("main_image_url", url)}
+            value={p.main_image_url}
           />
           <Row label="Main Image URL"><input value={p.main_image_url ?? ""} onChange={(e) => set("main_image_url", e.target.value)} className="inp" placeholder="https://res.cloudinary.com/..." /></Row>
-          <CloudinaryUpload
-            label="Upload gallery asset"
-            accept="image/*,video/*"
-            onUpload={(url) => set("_gallery", p._gallery ? `${p._gallery}, ${url}` : url)}
+          <GallerySelector
+            gallery={p._galleryList || []}
+            onChange={(list) => setP((c) => ({ ...c, _galleryList: list }))}
           />
-          <Row label="Gallery URLs (comma-separated)">
-            <textarea value={p._gallery} onChange={(e) => set("_gallery", e.target.value)} rows={2} className="inp" placeholder="url1, url2, url3" />
-          </Row>
 
           <div className="grid grid-cols-2 gap-4">
             <Row label="Colors (comma-sep)"><input value={p._colors} onChange={(e) => set("_colors", e.target.value)} className="inp" placeholder="Onyx, Ivory, Gold" /></Row>
@@ -271,6 +279,60 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div>
       <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function GallerySelector({ gallery, onChange }: { gallery: string[]; onChange: (urls: string[]) => void }) {
+  const [showMulti, setShowMulti] = useState(false);
+
+  function removeImage(url: string) {
+    onChange(gallery.filter((u) => u !== url));
+  }
+
+  function handleMultiSelect(urls: string[]) {
+    const merged = Array.from(new Set([...gallery, ...urls]));
+    onChange(merged);
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1">Gallery Images</label>
+
+      {gallery.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {gallery.map((url) => (
+            <div key={url} className="relative w-20 h-20 rounded border border-border overflow-hidden bg-muted">
+              <img src={url} alt="Gallery" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => removeImage(url)}
+                className="absolute top-1 right-1 bg-destructive text-white p-0.5 rounded hover:bg-destructive/80"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShowMulti(true)}
+        className="flex items-center justify-center gap-2 w-full bg-secondary/30 border border-border px-4 py-3 text-xs uppercase tracking-[0.25em] hover:border-gold hover:text-gold transition-colors"
+      >
+        <Plus className="h-4 w-4" />
+        Add Gallery Images ({gallery.length} selected)
+      </button>
+
+      {showMulti && (
+        <MultiMediaSelector
+          label="Select Gallery Images"
+          selectedValues={gallery}
+          onSelect={handleMultiSelect}
+          onClose={() => setShowMulti(false)}
+        />
+      )}
     </div>
   );
 }

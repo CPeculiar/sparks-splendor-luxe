@@ -56,27 +56,47 @@ function ShopPage() {
       try {
         setLoadingSubs(true);
         const category = backendCats.find((c) => c.slug === search.category);
+        console.log("Looking for category:", search.category, "Found:", category);
+        
         if (!category?.id) {
+          console.warn("Category not found or has no ID");
           setCurrentSubs([]);
           return;
         }
 
-        const res = await fetch(`/api/sub-categories/category/${category.id}`);
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+        console.log("Fetching sub-categories from:", `${API_BASE}/api/sub-categories/category/${category.id}`);
+        
+        const res = await fetch(`${API_BASE}/api/sub-categories/category/${category.id}`);
+        console.log("Sub-categories response status:", res.status);
+        
         if (!res.ok) {
+          console.warn("Failed to fetch sub-categories, status:", res.status);
           setCurrentSubs([]);
           return;
         }
 
         const json = await res.json();
+        console.log("Sub-categories data received:", json);
+        
         const subs = Array.isArray(json?.data)
           ? json.data.map((sc: any) => ({ key: sc.slug, label: sc.name }))
           : [];
 
+        console.log("Mapped subs:", subs);
+
         // Add "All" option if there are sub-categories
         if (subs.length > 0) {
-          const allLabel = `All ${search.category.charAt(0).toUpperCase() + search.category.slice(1)}`;
-          setCurrentSubs([{ key: "all", label: allLabel }, ...subs]);
+          const categoryLabel = search.category
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+          const allLabel = `All ${categoryLabel}`;
+          const finalSubs = [{ key: "all", label: allLabel }, ...subs];
+          console.log("Setting currentSubs:", finalSubs);
+          setCurrentSubs(finalSubs);
         } else {
+          console.log("No sub-categories found");
           setCurrentSubs([]);
         }
       } catch (e) {
@@ -154,9 +174,9 @@ function ShopPage() {
 
       {/* sub-category strip (for any category with sub-categories) */}
       {currentSubs.length > 0 && (
-        <div className="border-b border-border/60 bg-secondary/20">
+        <div className="border-b border-border bg-secondary/30 sticky top-32 md:top-40 z-20">
           <div className="container-luxe overflow-x-auto">
-            <div className="flex items-center justify-center gap-1 md:gap-2 py-2.5 min-w-max">
+            <div className="flex items-center justify-center gap-1 md:gap-2 py-3 min-w-max">
               {currentSubs.map((s) => (
                 <CatPill
                   key={s.key}

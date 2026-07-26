@@ -82,6 +82,11 @@ export const refundOrder = async (orderId: string, payload: { amount: number; re
   return r;
 };
 
+export const deleteOrder = async (orderId: string) => {
+  const r = await call<{ message?: string }>("DELETE", `/api/admin/orders/${orderId}`);
+  return r;
+};
+
 // ── Customers / Users ────────────────────────────────────────────────────────
 export interface AdminUser {
   id: string;
@@ -415,8 +420,11 @@ export const updateInventory = async (productId: string, quantity_in_stock: numb
 // ── Media (admin) ───────────────────────────────────────────────────────────
 export const fetchMedia = async (params?: { search?: string; limit?: number; offset?: number }) => {
   const qs = new URLSearchParams(params as any).toString();
-  const res = await fetch(`${API_BASE}/api/media${qs ? `?${qs}` : ""}`, { headers: { ...authHeaders() } });
+  const url = `${API_BASE}/api/media${qs ? `?${qs}` : ""}`;
+  console.log("Fetching media from:", url);
+  const res = await fetch(url, { headers: { ...authHeaders() } });
   const data = await res.json();
+  console.log("Media response:", { status: res.status, data });
   if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
   return data.data as any[];
 };
@@ -434,9 +442,44 @@ export const uploadMedia = async (file: File) => {
   return data.data;
 };
 
+export const uploadMediaBatch = async (files: File[], onProgress?: (uploaded: number, total: number) => void) => {
+  const form = new FormData();
+  for (const file of files) {
+    form.append("files", file);
+  }
+  const res = await fetch(`${API_BASE}/api/media/upload/batch`, {
+    method: "POST",
+    headers: { ...authHeaders() },
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || data?.message || "Batch upload failed");
+  return data.data;
+};
+
 export const addMediaUrl = async (payload: { url: string; file_name?: string; media_type?: string; alt_text?: string; category?: string }) => {
   const r = await call<{ data: any }>("POST", "/api/media/add-url", payload);
   return r.data;
+};
+
+export const updateMedia = async (mediaId: string, payload: { file_name?: string; alt_text?: string; category?: string }) => {
+  const r = await call<{ data: any }>("PUT", `/api/media/${mediaId}`, payload);
+  return r.data;
+};
+
+export const deleteMedia = async (mediaId: string) => {
+  await call("DELETE", `/api/media/${mediaId}`);
+};
+
+export const syncMediaLibrary = async () => {
+  const r = await call<{ 
+    success: boolean; 
+    message: string; 
+    added: number;
+    synced: number;
+    orphanedCount: number;
+  }>("POST", "/api/media/sync/cloudinary", {});
+  return r;
 };
 
 // ── Payment config ──────────────────────────────────────────────────────────

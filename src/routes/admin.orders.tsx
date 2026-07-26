@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
-import { fetchOrders, updateOrderStatus, fetchOrderEdits, postOrderEdit, refundOrder, type AdminOrder } from "@/lib/admin";
+import { Search, Trash2 } from "lucide-react";
+import { fetchOrders, updateOrderStatus, fetchOrderEdits, postOrderEdit, refundOrder, deleteOrder, type AdminOrder } from "@/lib/admin";
+import { getCurrentUser } from "@/lib/auth";
 import { StatusPill } from "./admin.index";
 
 export const Route = createFileRoute("/admin/orders")({
@@ -21,6 +22,7 @@ function AdminOrders() {
   const [editNote, setEditNote] = useState('');
   const [editChanges, setEditChanges] = useState('');
   const [editsReloadKey, setEditsReloadKey] = useState(0);
+  const user = getCurrentUser();
 
   useEffect(() => { void load(); }, []);
 
@@ -183,6 +185,19 @@ function AdminOrders() {
                       } catch (e) { alert(e instanceof Error ? e.message : 'Failed'); }
                     }} className="px-3 py-2 bg-red-600 text-white text-xs">Refund</button>
                     <button onClick={() => { setRefundAmount(Number(opened.total)); setGatewayRefund(false); }} className="px-3 py-2 border border-border text-xs">Reset</button>
+                    {user?.role === 'super_admin' && (
+                      <button onClick={async () => {
+                        if (!confirm(`Delete order ${opened.order_number}? This cannot be undone.`)) return;
+                        try {
+                          await deleteOrder(opened.id);
+                          alert('Order deleted');
+                          void load();
+                          setOpened(null);
+                        } catch (e) { alert(e instanceof Error ? e.message : 'Failed to delete order'); }
+                      }} className="px-3 py-2 bg-destructive text-white text-xs flex items-center gap-1">
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
