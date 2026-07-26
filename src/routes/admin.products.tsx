@@ -301,8 +301,8 @@ function GallerySelector({ gallery, onChange }: { gallery: string[]; onChange: (
 
       {gallery.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {gallery.map((url) => (
-            <div key={url} className="relative w-20 h-20 rounded border border-border overflow-hidden bg-muted">
+          {gallery.map((url, index) => (
+            <div key={url || `gallery-${index}`} className="relative w-20 h-20 rounded border border-border overflow-hidden bg-muted">
               <img src={url} alt="Gallery" className="w-full h-full object-cover" />
               <button
                 type="button"

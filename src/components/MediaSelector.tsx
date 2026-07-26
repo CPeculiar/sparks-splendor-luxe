@@ -17,7 +17,10 @@ export function MediaSelector({ onSelect, label = "Select Media", value }: Media
   const [pending, setPending] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) { loadMedia(); setPending(value || null); }
+    if (open) { 
+      loadMedia(); 
+      setPending(value || null); 
+    }
   }, [open]);
 
   async function loadMedia() {
@@ -25,13 +28,19 @@ export function MediaSelector({ onSelect, label = "Select Media", value }: Media
     try {
       const data = await fetchMedia({ limit: 500, offset: 0 });
       setMedia(data || []);
-    } catch { setMedia([]); }
-    finally { setLoading(false); }
+    } catch { 
+      setMedia([]); 
+    }
+    finally { 
+      setLoading(false); 
+    }
   }
 
   function handleAdd() {
-    if (pending) onSelect(pending);
-    setOpen(false);
+    if (pending) {
+      onSelect(pending);
+      // Don't close the modal - let user select multiple or close manually
+    }
   }
 
   const filtered = media.filter(m =>
@@ -48,8 +57,10 @@ export function MediaSelector({ onSelect, label = "Select Media", value }: Media
           <div className="relative w-20 h-20 rounded border border-border overflow-hidden bg-muted">
             <img src={value} alt="Selected" className="w-full h-full object-cover" />
             <button
+              type="button"
               onClick={() => onSelect("")}
               className="absolute top-1 right-1 bg-destructive text-white p-0.5 rounded hover:bg-destructive/80"
+              title="Clear selection"
             >
               <X className="h-3 w-3" />
             </button>
@@ -67,60 +78,86 @@ export function MediaSelector({ onSelect, label = "Select Media", value }: Media
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="absolute inset-0 bg-onyx/60" onClick={(e) => e.stopPropagation()} />
-          <div className="relative bg-background w-full max-w-4xl max-h-[80vh] p-6 space-y-4 overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display text-2xl">Media Library</h2>
-              <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search by name or description..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="inp pl-10"
-              />
-            </div>
-
-            {loading ? (
-              <div className="text-center py-12 text-muted-foreground">Loading media...</div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                {media.length === 0 ? "No media in library" : "No matching media"}
+          <div className="absolute inset-0 bg-onyx/60" onClick={(e) => { e.stopPropagation(); setOpen(false); }} />
+          <div className="relative bg-background w-full max-w-4xl max-h-[90vh] flex flex-col rounded-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Fixed Header */}
+            <div className="flex-shrink-0 border-b border-border p-6 space-y-3 bg-background">
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-2xl">Media Library</h2>
+                <button 
+                  type="button" 
+                  onClick={() => setOpen(false)} 
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-6 w-6" />
+                </button>
               </div>
-            ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {filtered.map((item) => {
-                  const isSelected = pending === item.url;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => setPending(item.url)}
-                      className={`relative group rounded overflow-hidden border-2 transition-all ${
-                        isSelected ? "border-gold" : "border-border hover:border-gold"
-                      }`}
-                    >
-                      <div className="aspect-square bg-muted">
-                        <img src={item.url} alt={item.alt_text || item.file_name || "Media"} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                      {isSelected && (
-                        <div className="absolute inset-0 bg-gold/20 flex items-center justify-center">
-                          <div className="bg-gold text-onyx p-1.5 rounded-full"><Check className="h-4 w-4" /></div>
+
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search by name or description..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="inp pl-10"
+                  autoFocus
+                />
+              </div>
+
+              {pending && (
+                <p className="text-xs text-gold bg-gold/10 border border-gold/20 p-2 rounded">
+                  ✓ Selected: {media.find(m => m.url === pending)?.file_name || 'Image'}
+                </p>
+              )}
+            </div>
+
+            {/* Scrollable Media Grid */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {loading ? (
+                <div className="text-center py-12 text-muted-foreground">Loading media...</div>
+              ) : filtered.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  {media.length === 0 ? "No media in library" : "No matching media"}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {filtered.map((item) => {
+                    const isSelected = pending === item.url;
+                    return (
+                      <button
+                        type="button"
+                        key={item.id}
+                        onClick={() => setPending(item.url)}
+                        className={`relative group rounded overflow-hidden border-2 transition-all ${
+                          isSelected ? "border-gold" : "border-border hover:border-gold"
+                        }`}
+                        title="Click to select"
+                      >
+                        <div className="aspect-square bg-muted">
+                          <img 
+                            src={item.url} 
+                            alt={item.alt_text || item.file_name || "Media"} 
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
+                        {isSelected && (
+                          <div className="absolute inset-0 bg-gold/20 flex items-center justify-center pointer-events-none">
+                            <div className="bg-gold text-onyx p-1.5 rounded-full">
+                              <Check className="h-4 w-4" />
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-            <div className="flex gap-2 justify-end pt-4 border-t border-border">
+            {/* Fixed Footer with Actions */}
+            <div className="flex-shrink-0 border-t border-border bg-background p-6 flex gap-2 justify-end">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -138,9 +175,10 @@ export function MediaSelector({ onSelect, label = "Select Media", value }: Media
               </button>
             </div>
 
-            <p className="text-xs text-muted-foreground pt-2">
-              💡 Tip: Go to the Media Library to upload new images, and they'll be available everywhere on the site
-            </p>
+            {/* Tip */}
+            <div className="flex-shrink-0 bg-secondary/30 border-t border-border px-6 py-3 text-xs text-muted-foreground">
+              💡 Tip: Go to the Media Library to upload new images
+            </div>
           </div>
         </div>
       )}

@@ -1,10 +1,13 @@
 import { Outlet, Link, createRootRoute, useRouterState } from "@tanstack/react-router";
+import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/layout/CartDrawer";
 import { WhatsAppFab } from "@/components/layout/WhatsAppFab";
 import { CartProvider } from "@/lib/cart";
 import { CurrencyProvider } from "@/lib/currency";
+import { IdleWarningModal } from "@/components/IdleWarningModal";
+import { useAuthRefresh } from "@/hooks/useAuthRefresh";
 
 function NotFoundComponent() {
   return (
@@ -29,6 +32,22 @@ export const Route = createRootRoute({
 function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isAdminRoute = pathname.startsWith("/admin");
+  const [idleWarningOpen, setIdleWarningOpen] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(60);
+
+  // Only enable idle timer for admin routes
+  if (isAdminRoute) {
+    useAuthRefresh(
+      (secs) => {
+        setSecondsLeft(secs);
+        if (secs === 60) setIdleWarningOpen(true);
+        if (secs === 0) setIdleWarningOpen(false);
+      },
+      () => {
+        setIdleWarningOpen(false);
+      }
+    );
+  }
 
   return (
     <CurrencyProvider>
@@ -42,6 +61,16 @@ function RootComponent() {
         </div>
         {!isAdminRoute && <CartDrawer />}
         {!isAdminRoute && <WhatsAppFab />}
+        
+        {/* Idle warning modal - only on admin routes */}
+        {isAdminRoute && (
+          <IdleWarningModal
+            open={idleWarningOpen}
+            secondsLeft={secondsLeft}
+            onStayLoggedIn={() => setIdleWarningOpen(false)}
+            onLogout={() => setIdleWarningOpen(false)}
+          />
+        )}
       </CartProvider>
     </CurrencyProvider>
   );

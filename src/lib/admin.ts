@@ -1,4 +1,5 @@
 import { getAuthToken } from "@/lib/auth";
+import { refreshAuthToken, logoutUser } from "@/hooks/useAuthRefresh";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -13,13 +14,27 @@ function jsonHeaders(): Record<string, string> {
   return { "Content-Type": "application/json", ...authHeaders() };
 }
 
-async function call<T = any>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
+async function call<T = any>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown, retry = true): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: jsonHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json();
+  
+  // Handle 401 Unauthorized - try to refresh token
+  if (res.status === 401 && retry) {
+    const refreshed = await refreshAuthToken();
+    if (refreshed) {
+      // Retry the request with new token
+      return call<T>(method, path, body, false);
+    } else {
+      // Token refresh failed, logout user
+      logoutUser();
+      throw new Error("Your session has expired. Please log in again.");
+    }
+  }
+  
   if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
   return data;
 }
