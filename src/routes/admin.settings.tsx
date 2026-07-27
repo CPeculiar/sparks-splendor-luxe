@@ -92,7 +92,7 @@ export default function AdminSettings() {
             />
           </div>
           <div>
-            <label className="text-eyebrow block mb-2">Store Phone</label>
+            <label className="text-eyebrow block mb-2">Store Phone.</label>
             <input
               type="tel"
               value={settings.store_phone || ""}

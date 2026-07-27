@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Heart, Minus, Plus, Ruler, Shield, Star, Truck, ChevronRight, X } from "lucide-react";
+import { Heart, Minus, Plus, Scissors, Shield, Star, Truck, ChevronRight, X } from "lucide-react";
 import { useProduct } from "@/lib/db-products";
 import { getRelated } from "@/lib/products";
 import { ProductCard } from "@/components/ProductCard";
@@ -20,12 +20,12 @@ function ProductPage() {
   const { product, loading } = useProduct(slug);
   const { add } = useCart();
   const { format } = useCurrency();
-  const [size, setSize] = useState<string>("");
+  // const [size, setSize] = useState<string>("");
   const [color, setColor] = useState<string>("");
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
   const [zoom, setZoom] = useState(false);
-  const [guide, setGuide] = useState(false);
+  // const [guide, setGuide] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [inWishlist, setInWishlist] = useState(false);
@@ -153,7 +153,7 @@ function ProductPage() {
     );
   }
 
-  const currentSize = size || product.sizes[1] || product.sizes[0] || "";
+  // const currentSize = size || product.sizes[1] || product.sizes[0] || "";
   const currentColor = color || product.colors[0] || "";
   const related = getRelated(product, 4);
 
@@ -245,6 +245,7 @@ function ProductPage() {
             </div>
           )}
 
+          {/* Sizes hidden — all pieces are bespoke
           {product.sizes.length > 0 && (
             <div className="mt-6">
               <div className="flex items-center justify-between mb-3">
@@ -267,6 +268,7 @@ function ProductPage() {
               </div>
             </div>
           )}
+          */}
 
           <div className="mt-6 flex items-stretch gap-3">
             <div className="flex items-center border border-border">
@@ -275,7 +277,7 @@ function ProductPage() {
               <button onClick={() => setQty(qty + 1)} className="px-3 h-12 hover:bg-muted" aria-label="Increase"><Plus className="h-4 w-4" /></button>
             </div>
             <button
-              onClick={() => add(product, { size: currentSize, color: currentColor, quantity: qty })}
+              onClick={() => add(product, { size: "", color: currentColor, quantity: qty })}
               className="flex-1 bg-onyx text-cream h-12 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
             >
               Add to Bag
@@ -303,7 +305,7 @@ function ProductPage() {
             {[
               { I: Truck, t: "Free Shipping", s: "On orders over ₦500k" },
               { I: Shield, t: "Lifetime Care", s: "Free alterations" },
-              { I: Ruler, t: "Bespoke Fit", s: "By appointment" },
+              { I: Scissors, t: "Bespoke Fit", s: "By appointment" },
             ].map((it) => (
               <div key={it.t}>
                 <it.I className="h-5 w-5 text-gold mx-auto" />
@@ -449,6 +451,7 @@ function ProductPage() {
         </div>
       )}
 
+      {/* Size guide modal hidden — all pieces are bespoke
       {guide && (
         <div className="fixed inset-0 z-50 bg-onyx/70 flex items-center justify-center p-4 animate-fade-in" onClick={() => setGuide(false)}>
           <div className="bg-background max-w-lg w-full p-8 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -480,6 +483,7 @@ function ProductPage() {
           </div>
         </div>
       )}
+      */}
     </>
   );
 }

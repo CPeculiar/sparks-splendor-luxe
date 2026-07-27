@@ -61,14 +61,14 @@ function ReturnsPolicyPage() {
                   support@sparksandsplendour.com
                 </a>{" "}
                 or via WhatsApp at{" "}
-                <a href="https://wa.me/2348137037919" className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">
-                  +234 813 703 7919
+                <a href="https://wa.me/2349053572403" className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">
+                  +234 905 357 2403
                 </a>.
               </li>
               <li>Provide your order number, item(s) to be returned, and reason for return.</li>
               <li>Our team will review your request and respond within <strong>2 business days</strong> with a Return Authorisation Number (RAN) and return instructions.</li>
               <li>Package the item securely in its original packaging and include the RAN inside the parcel.</li>
-              <li>Ship the item to our Office: <strong>Block 1, House 1, Spring Garden Estate, Orchid Road,
+              <li>Ship the item to our Office: <strong>2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
                   Lekki, Lagos State, Nigeria</strong>.</li>
             </ol>
             <p className="mt-4 text-sm italic">
@@ -151,9 +151,9 @@ function ReturnsPolicyPage() {
             <p>For all returns, exchange, and refund enquiries, please contact us:</p>
             <ul className="mt-3 space-y-1 list-none pl-0">
               <li>Email: <a href="mailto:support@sparksandsplendour.com" className="text-gold-deep underline">support@sparksandsplendour.com</a></li>
-              <li>Phone: <a href="tel:+2348137037919" className="text-gold-deep underline">+234 813 703 7919</a></li>
-              <li>WhatsApp: <a href="https://wa.me/2348137037919" className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">+234 813 703 7919</a></li>
-              <li>Address: Block 1, House 1, Spring Garden Estate, Orchid Road,
+              <li>Phone: <a href="tel:+2348137037919" className="text-gold-deep underline">+234 905 357 2403</a></li>
+              <li>WhatsApp: <a href="https://wa.me/2348137037919" className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">+234 905 357 2403</a></li>
+              <li>Address: 2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
                   Lekki, Lagos State, Nigeria</li>
               <li>Hours: Monday – Saturday, 10am – 7pm (WAT)</li>
             </ul>

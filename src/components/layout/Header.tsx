@@ -241,7 +241,7 @@ export function Header() {
 
           {/* ── Mobile hamburger (left) ── */}
           <button
-            className={`lg:hidden -ml-2 p-2 ${textCls}`}
+            className={`xl:hidden -ml-2 p-2 ${textCls}`}
             onClick={() => setMobile(true)}
             aria-label="Open menu"
           >
@@ -249,7 +249,7 @@ export function Header() {
           </button>
 
           {/* ── Desktop: left nav ── */}
-          <nav className="hidden lg:flex items-center gap-4 text-[11px] tracking-[0.18em] uppercase font-medium" style={{ flex: '0 1 auto', marginRight: '2rem' }}>
+          <nav className="hidden xl:flex items-center gap-3 text-[10px] tracking-[0.15em] uppercase font-medium shrink-0" style={{ marginRight: '1.5rem' }}>
             {loadingCategories ? (
               <span className={`text-xs ${textCls}`}>Loading...</span>
             ) : navLeft.length > 0 ? (
@@ -260,24 +260,24 @@ export function Header() {
           {/* ── Logo (center) ── */}
           <Link
             to="/"
-            className="flex items-center gap-2.5 mx-auto lg:mx-0 lg:absolute lg:left-1/2 lg:-translate-x-1/2 shrink-0"
+            className="flex items-center gap-2.5 mx-auto xl:mx-0 xl:absolute xl:left-1/2 xl:-translate-x-1/2 shrink-0"
           >
             <img src={logo} alt="Sparks & Splendour" className="h-10 md:h-12 w-auto rounded-sm" />
             <span className="hidden sm:flex flex-col leading-none">
               <span className={`font-display text-lg md:text-xl tracking-[0.2em] ${textCls}`}>SPARKS</span>
-              <span className="text-[8px] md:text-[9px] tracking-[0.5em] text-gold">& SPLENDOUR</span>
+              <span className="text-[8px] md:text-[9px] tracking-[0.5em] text-gold">&amp; SPLENDOUR</span>
             </span>
           </Link>
 
           {/* ── Desktop: right nav + icons ── */}
-          <div className="hidden lg:flex items-center gap-4 text-[11px] tracking-[0.18em] uppercase font-medium justify-end" style={{ flex: '0 1 auto', marginLeft: '2rem' }}>
+          <div className="hidden xl:flex items-center gap-3 text-[10px] tracking-[0.15em] uppercase font-medium justify-end shrink-0" style={{ marginLeft: '1.5rem' }}>
             {!loadingCategories && navRight.length > 0 && navRight.map((n) => <NavLink key={n.id} item={n} />)}
 
             {/* divider */}
             <span className="h-4 w-px bg-border/60 mx-1" />
 
-            <Link to="/about"   className={`hover:text-gold transition-colors ${textCls}`}>About</Link>
-            <Link to="/contact" className={`hover:text-gold transition-colors ${textCls}`}>Contact</Link>
+            <Link to="/about"   className={`hover:text-gold transition-colors ${textCls} whitespace-nowrap`}>About</Link>
+            <Link to="/contact" className={`hover:text-gold transition-colors ${textCls} whitespace-nowrap`}>Contact</Link>
 
             <Link to="/account" className={`p-1 hover:text-gold transition-colors inline-flex items-center justify-center ${textCls}`} aria-label="Account">
               {authUser?.profile_image ? (
@@ -306,7 +306,7 @@ export function Header() {
 
           {/* ── Mobile: cart icon (right) ── */}
           <button
-            className={`lg:hidden relative p-2 ml-auto hover:text-gold transition-colors ${textCls}`}
+            className={`xl:hidden relative p-2 ml-auto hover:text-gold transition-colors ${textCls}`}
             onClick={() => setOpen(true)}
             aria-label="Cart"
           >
@@ -322,7 +322,7 @@ export function Header() {
 
       {/* ── Mobile drawer ── */}
       {mobile && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 xl:hidden">
           <div className="absolute inset-0 bg-onyx/70" onClick={() => setMobile(false)} />
           <div className="absolute left-0 top-0 h-full w-[85%] max-w-sm bg-background flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">

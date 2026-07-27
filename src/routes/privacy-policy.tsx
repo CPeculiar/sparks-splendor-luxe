@@ -134,9 +134,9 @@ function PrivacyPolicyPage() {
             </p>
             <ul className="space-y-2 mt-3">
               <li><strong>Email:</strong> support@sparksandsplendour.com</li>
-              <li><strong>Address:</strong> Block 1, House 1, Spring Garden Estate, Orchid Road,
+              <li><strong>Address:</strong> 2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
                 Lekki, Lagos State, Nigeria</li>
-              <li><strong>Phone:</strong> +234 813 703 7919</li>
+              <li><strong>Phone:</strong> +234 905 357 2403</li>
             </ul>
           </PolicySection>
 

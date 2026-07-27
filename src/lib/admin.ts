@@ -173,6 +173,7 @@ export interface AdminProduct {
   name: string;
   category_id: string | null;
   category_slug?: string;
+  sub_category?: string | null;
   description: string | null;
   price: number;
   price_usd?: number;
@@ -213,6 +214,10 @@ export const updateProduct = async (id: string, patch: Partial<AdminProduct> & {
 
 export const deleteProduct = async (id: string) => {
   await call("DELETE", `/api/products/${id}`);
+};
+
+export const deleteProductsBulk = async (ids: string[]) => {
+  await Promise.all(ids.map((id) => call("DELETE", `/api/products/${id}`)));
 };
 
 // ── Transactions ─────────────────────────────────────────────────────────────

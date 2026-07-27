@@ -64,9 +64,9 @@ function ContactPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
-            <Info I={MapPin} t="Office" l={["Block 1, House 1, Spring Garden Estate", "Orchid Road, Lekki, Lagos, Nigeria"]} />
+            <Info I={MapPin} t="Office" l={["2b Baale Street, Lafiaji Off Buena Estate", "Orchid Road, Lekki, Lagos, Nigeria"]} />
             <Info I={Clock} t="Hours" l={["Mon — Sat: 10am — 7pm", "Sundays by appointment"]} />
-            <Info I={Phone} t="Telephone" l={["+234 813 703 7919"]} />
+            <Info I={Phone} t="Telephone" l={["+234 905 357 2403"]} />
             <Info I={Mail} t="Email" l={["support@sparksandsplendour.com"]} />
           </div>
 

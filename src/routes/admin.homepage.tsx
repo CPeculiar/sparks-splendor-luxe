@@ -48,7 +48,7 @@ function AdminHomepage() {
   const [slides, setSlides]         = useState<HeroSlide[]>([]);
   const [collections, setCollections] = useState<CollectionCard[]>([]);
   const [settings, setSettings]     = useState<SiteSettings>({
-    announcement_bar: "Complimentary worldwide shipping on orders above ₦500,000 · Bespoke fittings by appointment",
+    announcement_bar: " Bespoke fittings by appointment",
     promo_title: "Bespoke. Beyond Compare.",
     promo_subtitle: "Reserve a private consultation with our master tailors and receive 15% on your first commissioned piece.",
     promo_cta: "Book an Appointment",
