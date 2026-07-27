@@ -114,16 +114,32 @@ function AdminProducts() {
     }
   }
 
-  async function save(p: Partial<AdminProduct> & { colors?: string[]; sizes?: string[] }) {
+  async function save(p: Partial<AdminProduct> & { colors?: string[]; sizes?: string[]; components?: any[] }) {
     setError(null);
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
     try {
       const payload = {
         ...p,
         price: Number(p.price) || 0,
         quantity_in_stock: Math.round(Number(p.quantity_in_stock) ?? 0),
       };
-      if (p.id) await updateProduct(p.id, payload);
-      else await createProduct(payload);
+      let savedId: string;
+      if (p.id) {
+        await updateProduct(p.id, payload);
+        savedId = p.id;
+      } else {
+        const created = await createProduct(payload);
+        savedId = (created as any).id;
+      }
+      // Save components if has_components is set
+      if ((p as any).has_components && savedId && Array.isArray(p.components)) {
+        const { getAuthToken } = await import("@/lib/auth");
+        await fetch(`${API_BASE}/api/products/${savedId}/components`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${getAuthToken()}` },
+          body: JSON.stringify({ components: p.components }),
+        });
+      }
       setEditing(null);
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : "Save failed"); }
@@ -288,14 +304,26 @@ function AdminProducts() {
                     </td>
                     <td className="p-3 text-right whitespace-nowrap">
                       <button
-                        onClick={() => setEditing({
-                          ...p,
-                          colors: Array.isArray((p as any).colors) ? (p as any).colors : [],
-                          sizes: [],
-                          gallery: Array.isArray(p.gallery)
-                            ? p.gallery.map((g: any) => typeof g === "string" ? g : g?.image_url ?? g)
-                            : [],
-                        })}
+                        onClick={async () => {
+                          const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+                          let components: any[] = [];
+                          if ((p as any).has_components) {
+                            try {
+                              const r = await fetch(`${API_BASE}/api/products/${p.id}/components`);
+                              const d = await r.json();
+                              components = d.data || [];
+                            } catch {}
+                          }
+                          setEditing({
+                            ...p,
+                            colors: Array.isArray((p as any).colors) ? (p as any).colors : [],
+                            sizes: [],
+                            gallery: Array.isArray(p.gallery)
+                              ? p.gallery.map((g: any) => typeof g === "string" ? g : g?.image_url ?? g)
+                              : [],
+                            components,
+                          } as any);
+                        }}
                         className="p-2 hover:text-gold transition-colors" aria-label="Edit"
                       ><Pencil className="h-4 w-4" /></button>
                       <button onClick={() => { setSelectedProducts(new Set([p.id])); setShowDeleteConfirm(true); }} className="p-2 hover:text-destructive transition-colors" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
@@ -394,14 +422,14 @@ function ProductForm({
   onCancel: () => void;
   onSave: (p: FormProduct) => void | Promise<void>;
 }) {
-  const [p, setP] = useState<FormProduct & { _colors: string; _sizes: string; _galleryList: string[] }>({
+  const [p, setP] = useState<FormProduct & { _colors: string; _sizes: string; _galleryList: string[]; _components: any[] }>({
     ...initial,
     _colors:  Array.isArray(initial.colors) ? initial.colors.join(", ") : "",
     _sizes:   Array.isArray(initial.sizes)  ? initial.sizes.join(", ")  : "S, M, L, XL, XXL",
-    // Ensure gallery items are strings (not objects)
     _galleryList: Array.isArray(initial.gallery)
       ? initial.gallery.map((g: any) => typeof g === "string" ? g : g?.image_url ?? "").filter(Boolean)
       : [],
+    _components: (initial as any).components ?? [],
   });
   const [subCategories, setSubCategories] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -439,11 +467,12 @@ function ProductForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!p.price || p.price <= 0) {
+    const isComp = !!(p as any).has_components;
+    if (!isComp && (!p.price || p.price <= 0)) {
       setError("NGN price must be greater than 0");
       return;
     }
-    if (!p.price_usd || p.price_usd <= 0) {
+    if (!isComp && (!p.price_usd || p.price_usd <= 0)) {
       setError("USD price must be greater than 0");
       return;
     }
@@ -452,13 +481,11 @@ function ProductForm({
     const result = onSave({
       ...p,
       colors:  p._colors.split(",").map((s) => s.trim()).filter(Boolean),
-      /* Sizes commented out for bespoke suits */
-      // sizes:   p._sizes.split(",").map((s) => s.trim()).filter(Boolean),
       sizes: [],
       quantity_in_stock: Math.round(Number(p.quantity_in_stock) ?? 0),
-      // Always send gallery so existing images are preserved (even empty array keeps them unchanged if not provided)
       gallery: p._galleryList && p._galleryList.length > 0 ? p._galleryList : undefined,
-    });
+      components: p._components,
+    } as any);
     // If onSave returns a promise, clear saving when it resolves
     if (result && typeof (result as any).finally === "function") {
       (result as Promise<void>).finally(() => setSaving(false));
@@ -518,8 +545,8 @@ function ProductForm({
           </Row>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Row label="Price NGN (₦)"><input type="number" step="0.01" value={p.price ?? 0} onChange={(e) => set("price", Number(e.target.value))} required className="inp" /></Row>
-            <Row label="Price USD ($)"><input type="number" step="0.01" value={p.price_usd ?? 0} onChange={(e) => set("price_usd", Number(e.target.value))} required className="inp" /></Row>
+            <Row label={`Price NGN (₦)${(p as any).has_components ? " (optional)" : ""}`}><input type="number" step="0.01" value={p.price ?? 0} onChange={(e) => set("price", Number(e.target.value))} required={!(p as any).has_components} className="inp" /></Row>
+            <Row label={`Price USD ($)${(p as any).has_components ? " (optional)" : ""}`}><input type="number" step="0.01" value={p.price_usd ?? 0} onChange={(e) => set("price_usd", Number(e.target.value))} required={!(p as any).has_components} className="inp" /></Row>
             <Row label="Stock"><input type="number" value={p.quantity_in_stock ?? 0} onChange={(e) => set("quantity_in_stock", Number(e.target.value))} className="inp" /></Row>
           </div>
 
@@ -566,7 +593,19 @@ function ProductForm({
               <input type="checkbox" checked={p.is_featured ?? false} onChange={(e) => set("is_featured", e.target.checked)} />
               Featured
             </label>
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input type="checkbox" checked={(p as any).has_components ?? false} onChange={(e) => set("has_components" as any, e.target.checked)} />
+              Component Pricing
+            </label>
           </div>
+
+          {(p as any).has_components && (
+            <ComponentEditor
+              productId={p.id}
+              components={(p as any)._components ?? []}
+              onChange={(list) => setP((c) => ({ ...c, _components: list }))}
+            />
+          )}
 
           <div className="pt-4 flex flex-col-reverse sm:flex-row gap-3">
             <button type="button" onClick={onCancel} className="flex-1 border border-border py-2 md:py-3 text-xs tracking-[0.25em] uppercase hover:border-gold transition-colors">Cancel</button>
@@ -591,6 +630,74 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     <div>
       <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1.5">{label}</label>
       {children}
+    </div>
+  );
+}
+
+function ComponentEditor({ productId, components, onChange }: {
+  productId?: string;
+  components: { name: string; price: number; price_usd?: number; is_required?: boolean }[];
+  onChange: (list: { name: string; price: number; price_usd?: number; is_required?: boolean }[]) => void;
+}) {
+  function add() {
+    onChange([...components, { name: "", price: 0, price_usd: 0, is_required: false }]);
+  }
+  function remove(i: number) {
+    onChange(components.filter((_, idx) => idx !== i));
+  }
+  function update(i: number, field: string, value: any) {
+    const next = components.map((c, idx) => idx === i ? { ...c, [field]: value } : c);
+    onChange(next);
+  }
+
+  return (
+    <div className="border border-gold/30 bg-gold/5 p-4 rounded space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-semibold">Component Pricing</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Each component adds to the total price as the customer selects it.</p>
+        </div>
+        <button type="button" onClick={add} className="inline-flex items-center gap-1 text-xs border border-border px-3 py-1.5 hover:border-gold hover:text-gold transition-colors">
+          <Plus className="h-3 w-3" /> Add
+        </button>
+      </div>
+      {components.length === 0 && (
+        <p className="text-xs text-muted-foreground italic">No components yet. Add at least one.</p>
+      )}
+      {components.map((c, i) => (
+        <div key={i} className="grid grid-cols-[1fr_100px_80px_auto_auto] gap-2 items-center">
+          <input
+            value={c.name}
+            onChange={(e) => update(i, "name", e.target.value)}
+            placeholder="e.g. Suit & Pants"
+            className="inp text-xs"
+          />
+          <input
+            type="number"
+            value={c.price}
+            onChange={(e) => update(i, "price", Number(e.target.value))}
+            placeholder="NGN"
+            className="inp text-xs"
+          />
+          <input
+            type="number"
+            value={c.price_usd ?? ""}
+            onChange={(e) => update(i, "price_usd", e.target.value ? Number(e.target.value) : 0)}
+            placeholder="USD"
+            className="inp text-xs"
+          />
+          <label className="flex items-center gap-1 text-xs whitespace-nowrap cursor-pointer">
+            <input type="checkbox" checked={c.is_required ?? false} onChange={(e) => update(i, "is_required", e.target.checked)} />
+            Req
+          </label>
+          <button type="button" onClick={() => remove(i)} className="p-1 hover:text-destructive transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ))}
+      {components.length > 0 && (
+        <p className="text-[10px] text-muted-foreground">Columns: Name · Price NGN · Price USD · Required</p>
+      )}
     </div>
   );
 }

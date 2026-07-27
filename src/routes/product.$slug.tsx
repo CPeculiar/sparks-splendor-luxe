@@ -25,7 +25,6 @@ function ProductPage() {
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
   const [zoom, setZoom] = useState(false);
-  // const [guide, setGuide] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [inWishlist, setInWishlist] = useState(false);
@@ -33,6 +32,18 @@ function ProductPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  // Component pricing state — initialise with required component ids once product loads
+  const [selectedComponentIds, setSelectedComponentIds] = useState<Set<string>>(new Set());
+  const [componentProductId, setComponentProductId] = useState<string | undefined>(undefined);
+
+  // Sync required components whenever the product changes
+  useEffect(() => {
+    if (!product?.has_components || !product.components?.length) return;
+    if (componentProductId === product.id) return; // already initialised for this product
+    const required = new Set(product.components.filter(c => c.is_required).map(c => String(c.id)));
+    setSelectedComponentIds(required);
+    setComponentProductId(product.id);
+  }, [product?.id, product?.components]);
 
   useEffect(() => {
     if (!product) return;
@@ -157,6 +168,34 @@ function ProductPage() {
   const currentColor = color || product.colors[0] || "";
   const related = getRelated(product, 4);
 
+  // Component pricing
+  const isComponentProduct = product.has_components && product.components && product.components.length > 0;
+  const selectedComponents = isComponentProduct
+    ? product.components!.filter(c => selectedComponentIds.has(String(c.id)))
+    : [];
+  const requiredComponents = isComponentProduct
+    ? product.components!.filter(c => c.is_required)
+    : [];
+  const componentTotalNGN = selectedComponents.reduce((s, c) => s + c.price, 0);
+  const componentTotalUSD = selectedComponents.reduce((s, c) => s + (c.price_usd ?? 0), 0);
+  // Base price = sum of required components; shown even before user picks optional ones
+  const requiredTotalNGN = requiredComponents.reduce((s, c) => s + c.price, 0);
+  const requiredTotalUSD = requiredComponents.reduce((s, c) => s + (c.price_usd ?? 0), 0);
+  const displayedPrice = isComponentProduct
+    ? (product.display_currency === "USD"
+        ? (componentTotalUSD || requiredTotalUSD)
+        : (componentTotalNGN || requiredTotalNGN))
+    : (product.display_currency === "USD" ? product.price_usd || product.price : product.price);
+
+  function toggleComponent(id: string, isRequired: boolean) {
+    if (isRequired) return; // required components can't be deselected
+    setSelectedComponentIds(prev => {
+      const next = new Set(prev);
+      if (next.has(String(id))) next.delete(String(id)); else next.add(String(id));
+      return next;
+    });
+  }
+
   return (
     <>
       <div className="container-luxe pt-6 text-xs tracking-[0.18em] uppercase text-muted-foreground flex items-center gap-2">
@@ -218,14 +257,73 @@ function ProductPage() {
 
           <p className="text-2xl font-display mt-5">
             <PriceDisplay
-              price={product.display_currency === "USD" ? product.price_usd || product.price : product.price}
-              originalPrice={product.display_currency === "USD" ? product.original_price_usd : product.original_price}
+              price={displayedPrice}
+              originalPrice={isComponentProduct ? undefined : (product.display_currency === "USD" ? product.original_price_usd : product.original_price)}
               currency={product.currency_symbol}
             />
           </p>
-          <p className="text-xs text-muted-foreground mt-1">Tax included. Bespoke fittings complimentary.</p>
+          {isComponentProduct && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {selectedComponents.length > requiredComponents.length
+                ? `Base + ${selectedComponents.length - requiredComponents.length} add-on${selectedComponents.length - requiredComponents.length !== 1 ? "s" : ""} selected`
+                : "Add optional pieces below to customise"}
+            </p>
+          )}
+          {!isComponentProduct && (
+            <p className="text-xs text-muted-foreground mt-1">Tax included. Bespoke fittings complimentary.</p>
+          )}
 
           <p className="mt-6 text-muted-foreground leading-relaxed">{product.description}</p>
+
+          {/* Component pricing selector */}
+          {isComponentProduct && (
+            <div className="mt-7 border border-border p-4 space-y-3">
+              <p className="text-eyebrow">Build Your Look</p>
+              <p className="text-xs text-muted-foreground">Included pieces are always part of your order. Add optional pieces to customise.</p>
+              <div className="space-y-2">
+                {product.components!.map((c) => {
+                  const isSelected = selectedComponentIds.has(String(c.id));
+                  const isReq = c.is_required;
+                  const itemPrice = product.display_currency === "USD" ? (c.price_usd ?? 0) : c.price;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleComponent(c.id, isReq)}
+                      disabled={isReq}
+                      className={[
+                        "w-full flex items-center justify-between px-4 py-3 border text-sm transition-colors text-left",
+                        isSelected ? "border-onyx bg-onyx text-cream" : "border-border hover:border-gold",
+                        isReq ? "cursor-not-allowed opacity-80" : "cursor-pointer",
+                      ].join(" ")}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span className={`w-4 h-4 rounded-sm border flex items-center justify-center flex-shrink-0 ${
+                          isSelected ? "bg-gold border-gold" : "border-current"
+                        }`}>
+                          {isSelected && <span className="block w-2 h-2 bg-onyx rounded-sm" />}
+                        </span>
+                        <span>{c.name}</span>
+                        {isReq
+                          ? <span className="text-[10px] tracking-[0.15em] uppercase opacity-60">(included)</span>
+                          : <span className="text-[10px] tracking-[0.15em] uppercase opacity-50">(optional)</span>
+                        }
+                      </span>
+                      <span className="font-display tabular-nums">
+                        +{product.currency_symbol}{itemPrice.toLocaleString("en-NG")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <span className="text-xs text-muted-foreground uppercase tracking-[0.15em]">Total</span>
+                <span className="font-display text-lg">
+                  {product.currency_symbol}{displayedPrice.toLocaleString("en-NG")}
+                </span>
+              </div>
+            </div>
+          )}
 
           {product.colors.length > 0 && (
             <div className="mt-7">
@@ -277,8 +375,17 @@ function ProductPage() {
               <button onClick={() => setQty(qty + 1)} className="px-3 h-12 hover:bg-muted" aria-label="Increase"><Plus className="h-4 w-4" /></button>
             </div>
             <button
-              onClick={() => add(product, { size: "", color: currentColor, quantity: qty })}
-              className="flex-1 bg-onyx text-cream h-12 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
+              onClick={() => add(product, {
+                size: "",
+                color: currentColor,
+                quantity: qty,
+                ...(isComponentProduct ? {
+                  overridePrice: product.display_currency === "USD" ? componentTotalUSD : componentTotalNGN,
+                  selectedComponents,
+                } : {}),
+              })}
+              disabled={isComponentProduct && selectedComponents.length === 0 && requiredComponents.length === 0}
+              className="flex-1 bg-onyx text-cream h-12 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Add to Bag
             </button>

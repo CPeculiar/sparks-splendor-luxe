@@ -2,13 +2,15 @@ import {
   createContext, useCallback, useContext, useEffect,
   useMemo, useRef, useState, type ReactNode
 } from "react";
-import type { Product } from "./products";
+import type { Product, ProductComponent } from "./products";
 
 export interface CartItem {
   product: Product;
   quantity: number;
   size?: string | null;
   color?: string | null;
+  overridePrice?: number;          // used for component-based pricing
+  selectedComponents?: ProductComponent[]; // which components were selected
 }
 
 interface CartCtx {
@@ -17,7 +19,7 @@ interface CartCtx {
   subtotal: number;
   open: boolean;
   setOpen: (v: boolean) => void;
-  add: (p: Product, opts?: { size?: string; color?: string; quantity?: number }) => void;
+  add: (p: Product, opts?: { size?: string; color?: string; quantity?: number; overridePrice?: number; selectedComponents?: ProductComponent[] }) => void;
   remove: (id: string, size: string, color: string) => void;
   update: (id: string, size: string, color: string, q: number) => void;
   clear: () => void;
@@ -43,7 +45,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(KEY, JSON.stringify(items));
   }, [items]);
 
-  const add = useCallback((p: Product, opts: { size?: string; color?: string; quantity?: number } = {}) => {
+  const add = useCallback((p: Product, opts: { size?: string; color?: string; quantity?: number; overridePrice?: number; selectedComponents?: ProductComponent[] } = {}) => {
     const size = opts.size ?? p.sizes[1] ?? p.sizes[0];
     const color = opts.color ?? p.colors[0];
     const qty = opts.quantity ?? 1;
@@ -54,7 +56,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         next[idx] = { ...next[idx], quantity: next[idx].quantity + qty };
         return next;
       }
-      return [...curr, { product: p, quantity: qty, size, color }];
+      return [...curr, { product: p, quantity: qty, size, color, overridePrice: opts.overridePrice, selectedComponents: opts.selectedComponents }];
     });
     setOpen(true);
   }, []);
@@ -75,7 +77,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // ✅ Memoize derived values
   const count = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);
-  const subtotal = useMemo(() => items.reduce((s, i) => s + i.quantity * i.product.price, 0), [items]);
+  const subtotal = useMemo(() => items.reduce((s, i) => s + i.quantity * (i.overridePrice ?? i.product.price), 0), [items]);
 
   // ✅ Memoize the entire context value so consumers don't re-render unless something actually changed
   const value = useMemo<CartCtx>(

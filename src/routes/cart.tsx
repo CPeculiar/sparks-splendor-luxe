@@ -126,7 +126,8 @@ function CartPage() {
   };
 
   const shippingFree = subtotal >= 500_000;
-  const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 15_000;
+  //const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 15_000;
+   const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 5;
   const discountAmount = appliedCoupon
     ? appliedCoupon.discount_type === "percentage"
       ? (subtotal * appliedCoupon.discount_value) / 100

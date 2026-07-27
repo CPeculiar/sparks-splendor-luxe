@@ -3,6 +3,15 @@
 
 export type Category = "suits" | "natives" | "casuals" | "ladies" | "shirts" | "agbada" | "kaftan" | "pants";
 
+export interface ProductComponent {
+  id: string;
+  name: string;
+  price: number;
+  price_usd?: number | null;
+  is_required: boolean;
+  sort_order: number;
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -24,6 +33,8 @@ export interface Product {
   description: string;
   fabric: string;
   badge?: "New" | "Bestseller" | "Limited";
+  has_components?: boolean;
+  components?: ProductComponent[];
 }
 
 // ── path helpers ──────────────────────────────────────────────────────────────

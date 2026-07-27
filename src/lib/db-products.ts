@@ -43,6 +43,17 @@ function rowToProduct(r: any): Product {
     description: r.description ?? "",
     fabric: r.fabric ?? "",
     badge: r.badge ?? undefined,
+    has_components: r.has_components === true || r.has_components === "true",
+    components: Array.isArray(r.components)
+      ? r.components.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          price: Number(c.price),
+          price_usd: c.price_usd ? Number(c.price_usd) : null,
+          is_required: c.is_required === true || c.is_required === "true",
+          sort_order: Number(c.sort_order ?? 0),
+        }))
+      : [],
   };
 }
 
