@@ -14,6 +14,9 @@ function jsonHeaders(): Record<string, string> {
 }
 
 async function call<T = any>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown, retry = true): Promise<T> {
+  // Always ensure token is valid before making the request
+  await ensureTokenValid();
+
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: jsonHeaders(),
@@ -21,9 +24,15 @@ async function call<T = any>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   });
   const data = await res.json();
   
-  // Handle 401/403 - try to refresh token and retry once
+  // Handle 401/403 - force-expire token and retry once
   if ((res.status === 401 || res.status === 403) && retry) {
-    localStorage.setItem('ss-token-expiry', '0');
+    const refreshToken = localStorage.getItem("ss-refresh-token");
+    if (!refreshToken) {
+      clearAuth();
+      throw new Error("Your session has expired. Please log in again.");
+    }
+    // Force token expiry so ensureTokenValid will refresh
+    localStorage.setItem("ss-token-expiry", "0");
     await ensureTokenValid();
     const newToken = getAuthToken();
     if (newToken) return call<T>(method, path, body, false);
@@ -445,10 +454,19 @@ export const updateInventory = async (productId: string, quantity_in_stock: numb
 
 // ── Media (admin) ───────────────────────────────────────────────────────────
 export const fetchMedia = async (params?: { search?: string; limit?: number; offset?: number }) => {
+  await ensureTokenValid();
   const qs = new URLSearchParams(params as any).toString();
   const url = `${API_BASE}/api/media${qs ? `?${qs}` : ""}`;
   console.log("Fetching media from:", url);
   const res = await fetch(url, { headers: { ...authHeaders() } });
+  if (res.status === 401 || res.status === 403) {
+    localStorage.setItem('ss-token-expiry', '0');
+    await ensureTokenValid();
+    const res2 = await fetch(url, { headers: { ...authHeaders() } });
+    const data2 = await res2.json();
+    if (!res2.ok) throw new Error(data2?.error || data2?.message || "Request failed");
+    return data2.data as any[];
+  }
   const data = await res.json();
   console.log("Media response:", { status: res.status, data });
   if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
@@ -456,6 +474,7 @@ export const fetchMedia = async (params?: { search?: string; limit?: number; off
 };
 
 export const uploadMedia = async (file: File) => {
+  await ensureTokenValid();
   const form = new FormData();
   form.append("file", file);
   const res = await fetch(`${API_BASE}/api/media/upload`, {
@@ -463,12 +482,25 @@ export const uploadMedia = async (file: File) => {
     headers: { ...authHeaders() },
     body: form,
   });
+  if (res.status === 401 || res.status === 403) {
+    localStorage.setItem('ss-token-expiry', '0');
+    await ensureTokenValid();
+    const res2 = await fetch(`${API_BASE}/api/media/upload`, {
+      method: "POST",
+      headers: { ...authHeaders() },
+      body: form,
+    });
+    const data2 = await res2.json();
+    if (!res2.ok) throw new Error(data2?.error || data2?.message || "Upload failed");
+    return data2.data;
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || data?.message || "Upload failed");
   return data.data;
 };
 
 export const uploadMediaBatch = async (files: File[], onProgress?: (uploaded: number, total: number) => void) => {
+  await ensureTokenValid();
   const form = new FormData();
   for (const file of files) {
     form.append("files", file);
@@ -478,6 +510,18 @@ export const uploadMediaBatch = async (files: File[], onProgress?: (uploaded: nu
     headers: { ...authHeaders() },
     body: form,
   });
+  if (res.status === 401 || res.status === 403) {
+    localStorage.setItem('ss-token-expiry', '0');
+    await ensureTokenValid();
+    const res2 = await fetch(`${API_BASE}/api/media/upload/batch`, {
+      method: "POST",
+      headers: { ...authHeaders() },
+      body: form,
+    });
+    const data2 = await res2.json();
+    if (!res2.ok) throw new Error(data2?.error || data2?.message || "Batch upload failed");
+    return data2.data;
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data?.error || data?.message || "Batch upload failed");
   return data.data;

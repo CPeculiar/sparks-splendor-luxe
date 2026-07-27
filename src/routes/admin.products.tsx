@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Search, Loader2, Check } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Loader2, Check } from "lucide-react";
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct, type AdminProduct } from "@/lib/admin";
 import { useCategories } from "@/lib/db-products";
 import { MediaSelector } from "@/components/MediaSelector";
@@ -29,6 +29,17 @@ function AdminProducts() {
   const [filterSearch, setFilterSearch]     = useState("");
   const [searchInput, setSearchInput]       = useState("");
 
+  // Debounced search: fire load whenever searchInput changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilterSearch(searchInput);
+      setPage(1);
+      void load(1, filterCategory, filterStatus, filterSubCategory, searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
   async function load(p = page, cat = filterCategory, status = filterStatus, subCat = filterSubCategory, search = filterSearch) {
     setLoading(true);
     try {
@@ -47,12 +58,6 @@ function AdminProducts() {
   }
 
   useEffect(() => { void load(); }, []);
-
-  function applyFilters() {
-    setFilterSearch(searchInput);
-    setPage(1);
-    void load(1, filterCategory, filterStatus, filterSubCategory, searchInput);
-  }
 
   function handlePageChange(newPage: number) {
     setPage(newPage);
@@ -115,7 +120,7 @@ function AdminProducts() {
       const payload = {
         ...p,
         price: Number(p.price) || 0,
-        quantity_in_stock: Number(p.quantity_in_stock) || 0,
+        quantity_in_stock: Math.round(Number(p.quantity_in_stock) ?? 0),
       };
       if (p.id) await updateProduct(p.id, payload);
       else await createProduct(payload);
@@ -198,18 +203,12 @@ function AdminProducts() {
         </div>
         <div className="sm:col-span-2 lg:col-span-2">
           <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1">Search</label>
-          <div className="flex gap-2">
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
-              placeholder="Search by name..."
-              className="flex-1 border border-border bg-background px-3 py-2 text-sm"
-            />
-            <button onClick={applyFilters} className="px-3 py-2 bg-onyx text-cream hover:bg-gold hover:text-onyx transition-colors flex-shrink-0">
-              <Search className="h-4 w-4" />
-            </button>
-          </div>
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search by name..."
+            className="w-full border border-border bg-background px-3 py-2 text-sm"
+          />
         </div>
         <div className="text-xs text-muted-foreground self-end pb-2 sm:col-span-2 lg:col-span-1">
           {total} product{total !== 1 ? "s" : ""}
@@ -456,6 +455,7 @@ function ProductForm({
       /* Sizes commented out for bespoke suits */
       // sizes:   p._sizes.split(",").map((s) => s.trim()).filter(Boolean),
       sizes: [],
+      quantity_in_stock: Math.round(Number(p.quantity_in_stock) ?? 0),
       // Always send gallery so existing images are preserved (even empty array keeps them unchanged if not provided)
       gallery: p._galleryList && p._galleryList.length > 0 ? p._galleryList : undefined,
     });

@@ -14,28 +14,22 @@ const USER_KEY = "ss-auth-user";
 const TOKEN_EXPIRY_KEY = "ss-token-expiry";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
-function saveToken(token: string, expiresIn: string = "15m") {
+function saveToken(token: string, _expiresIn?: string) {
   localStorage.setItem(TOKEN_KEY, token);
-  const expiryTime = Date.now() + parseExpiry(expiresIn);
-  localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+  // Decode the JWT to get the real expiry instead of relying on a passed-in string
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    if (payload.exp) {
+      localStorage.setItem(TOKEN_EXPIRY_KEY, (payload.exp * 1000).toString());
+      return;
+    }
+  } catch {}
+  // Fallback: 14 minutes from now
+  localStorage.setItem(TOKEN_EXPIRY_KEY, (Date.now() + 14 * 60 * 1000).toString());
 }
 
 function saveRefreshToken(token: string) {
   localStorage.setItem(REFRESH_TOKEN_KEY, token);
-}
-
-function parseExpiry(expiresIn: string): number {
-  const match = expiresIn.match(/(\d+)([smhd])/);
-  if (!match) return 15 * 60 * 1000;
-  const [, value, unit] = match;
-  const num = parseInt(value);
-  switch (unit) {
-    case "s": return num * 1000;
-    case "m": return num * 60 * 1000;
-    case "h": return num * 60 * 60 * 1000;
-    case "d": return num * 24 * 60 * 60 * 1000;
-    default: return 15 * 60 * 1000;
-  }
 }
 
 function saveUser(user: AuthUser) {
@@ -55,7 +49,8 @@ function isTokenExpiringSoon(): boolean {
   if (!expiry) return true;
   const expiryTime = parseInt(expiry);
   const timeUntilExpiry = expiryTime - Date.now();
-  return timeUntilExpiry < 60000; // also catches already-expired (negative value)
+  // Refresh if within 2 minutes of expiry or already expired
+  return timeUntilExpiry < 2 * 60 * 1000;
 }
 
 let _refreshPromise: Promise<boolean> | null = null;
