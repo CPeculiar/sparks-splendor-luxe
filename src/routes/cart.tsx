@@ -73,6 +73,7 @@ function CartPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
     ref: string;
@@ -210,40 +211,55 @@ function CartPage() {
     };
   };
 
-  const updateOrderWithPayment = async (orderId: string, reference: string) => {
-    const token = getAuthToken();
-    const res = await fetch(`${API_BASE}/api/orders/${orderId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        paystack_reference: reference,
-        status: "processing",
-      }),
-    });
-
-    if (!res.ok) {
-      console.error("Failed to update order with payment reference");
+  // Called by Paystack callback — verify with backend which calls Paystack API
+  const verifyAndConfirm = async (
+    reference: string,
+    orderInfo: { orderId: string; orderNumber?: string; items: any[] }
+  ) => {
+    setVerifying(true);
+    try {
+      const token = getAuthToken();
+      const res = await fetch(`${API_BASE}/api/payments/verify/${reference}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setError("Payment could not be verified. If you were charged, please contact support.");
+        return;
+      }
+      setSuccess({
+        ref: reference,
+        total,
+        orderNumber: orderInfo.orderNumber,
+        items: orderInfo.items,
+        customerName: `${firstName} ${lastName}`.trim() || email,
+      });
+      clear();
+    } catch (err) {
+      setError("Payment verification failed. Please contact support with reference: " + reference);
+    } finally {
+      setVerifying(false);
     }
   };
 
-  const handlePaymentSuccess = async (reference: string, orderInfo: { orderId: string; orderNumber?: string; items: any[] }) => {
+  // Called when customer closes Paystack modal without completing payment
+  const abandonOrder = async (orderId: string) => {
     try {
-      await updateOrderWithPayment(orderInfo.orderId, reference);
-    } catch (err) {
-      console.error("Failed to update order after payment:", err);
+      const token = getAuthToken();
+      await fetch(`${API_BASE}/api/orders/${orderId}/abandon`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    } catch (e) {
+      // Non-critical — silent fail
     }
-
-    setSuccess({
-      ref: reference,
-      total,
-      orderNumber: orderInfo.orderNumber,
-      items: orderInfo.items,
-      customerName: `${firstName} ${lastName}`.trim() || email,
-    });
-    clear();
   };
 
   const handlePay = async () => {
@@ -298,12 +314,15 @@ function CartPage() {
         callback: (res) => {
           setPaying(false);
           if (orderInfo) {
-            void handlePaymentSuccess(res.reference, orderInfo);
+            void verifyAndConfirm(res.reference, orderInfo);
           }
         },
         onClose: () => {
           setPaying(false);
-          setError("Payment cancelled. Your order has been saved and is awaiting payment.");
+          if (orderInfo) {
+            void abandonOrder(orderInfo.orderId);
+          }
+          setError("Payment cancelled. Your order has been saved — you can retry payment by placing the order again.");
         },
       });
       handler.openIframe();
@@ -434,7 +453,7 @@ function CartPage() {
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Size {item.size || "-"} · {item.color || "-"}</p>
+                <p className="text-xs text-muted-foreground mt-1">{item.color || "-"}</p>
                 <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
                   <div className="flex items-center border border-border">
                     <button onClick={() => update(item.product.id, item.size || "", item.color || "", item.quantity - 1)} className="px-2 py-1.5 hover:bg-muted" aria-label="Decrease"><Minus className="h-3 w-3" /></button>
@@ -583,11 +602,11 @@ function CartPage() {
 
             <button
               onClick={handlePay}
-              disabled={paying}
+              disabled={paying || verifying}
               className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
             >
               <Lock className="h-3.5 w-3.5" />
-              {paying ? "Opening Paystack…" : `Pay ${format(total)}`}
+              {verifying ? "Verifying payment…" : paying ? "Opening Paystack…" : `Pay ${format(total)}`}
             </button>
 
             <div className="grid grid-cols-3 gap-3 pt-2 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">

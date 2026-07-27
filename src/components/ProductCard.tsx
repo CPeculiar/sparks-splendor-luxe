@@ -11,8 +11,13 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const second = product.gallery[1] ?? product.image;
 
   // Determine which price to show based on currency
-  const currentPrice = product.display_currency === "USD" ? product.price_usd || product.price : product.price;
-  const originalPrice = product.display_currency === "USD" ? product.original_price_usd : product.original_price;
+  const isComp = product.has_components && product.components && product.components.length > 0;
+  const requiredNGN = isComp ? product.components!.filter(c => c.is_required).reduce((s, c) => s + c.price, 0) : 0;
+  const requiredUSD = isComp ? product.components!.filter(c => c.is_required).reduce((s, c) => s + (c.price_usd ?? 0), 0) : 0;
+  const currentPrice = isComp
+    ? (product.display_currency === "USD" ? (requiredUSD || requiredNGN) : requiredNGN) || product.price
+    : (product.display_currency === "USD" ? product.price_usd || product.price : product.price);
+  const originalPrice = isComp ? undefined : (product.display_currency === "USD" ? product.original_price_usd : product.original_price);
 
   return (
     <div className="group relative">

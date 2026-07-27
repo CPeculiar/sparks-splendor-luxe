@@ -129,7 +129,9 @@ async function fetchJson<T>(path: string, options: RequestInit = {}, isRetry = f
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   // If 401/403 and we haven't retried yet, force-refresh the token and retry once
-  if ((response.status === 401 || response.status === 403) && !isRetry) {
+  // Skip this logic for auth endpoints (login, register, etc.) to avoid false "session expired" errors
+  const isAuthEndpoint = path.startsWith("/api/auth/");
+  if ((response.status === 401 || response.status === 403) && !isRetry && !isAuthEndpoint) {
     const refreshToken = getRefreshToken();
     if (refreshToken) {
       try {
