@@ -1,5 +1,5 @@
-import { Outlet, Link, createRootRoute, useRouterState } from "@tanstack/react-router";
-import { useState } from "react";
+import { Outlet, Link, createRootRoute, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useState, useCallback, useRef } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/layout/CartDrawer";
@@ -8,6 +8,7 @@ import { CartProvider } from "@/lib/cart";
 import { CurrencyProvider } from "@/lib/currency";
 import { IdleWarningModal } from "@/components/IdleWarningModal";
 import { useAuthRefresh } from "@/hooks/useAuthRefresh";
+import { logout, isAuthenticated } from "@/lib/auth";
 
 function NotFoundComponent() {
   return (
@@ -31,23 +32,34 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const isAdminRoute = pathname.startsWith("/admin");
   const [idleWarningOpen, setIdleWarningOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(60);
 
-  // Only enable idle timer for admin routes
-  if (isAdminRoute) {
-    useAuthRefresh(
-      (secs) => {
-        setSecondsLeft(secs);
-        if (secs === 60) setIdleWarningOpen(true);
-        if (secs === 0) setIdleWarningOpen(false);
-      },
-      () => {
-        setIdleWarningOpen(false);
-      }
-    );
-  }
+  const isAdminRouteRef = useRef(isAdminRoute);
+  isAdminRouteRef.current = isAdminRoute;
+
+  const handleIdleLogout = useCallback(() => {
+    setIdleWarningOpen(false);
+    if (isAuthenticated()) logout();
+    navigate({ to: "/admin/login" });
+  }, [navigate]);
+
+  const handleIdleWarning = useCallback((secs: number) => {
+    if (!isAdminRouteRef.current) return;
+    setSecondsLeft(secs);
+    if (secs === 60) setIdleWarningOpen(true);
+    if (secs === 0) handleIdleLogout();
+  }, [handleIdleLogout]);
+
+  const handleForceLogout = useCallback(() => {
+    if (!isAdminRouteRef.current) return;
+    handleIdleLogout();
+  }, [handleIdleLogout]);
+
+  // Hook must always be called — guard inside the hook callbacks instead
+  useAuthRefresh(handleIdleWarning, handleForceLogout);
 
   return (
     <CurrencyProvider>
@@ -68,7 +80,7 @@ function RootComponent() {
             open={idleWarningOpen}
             secondsLeft={secondsLeft}
             onStayLoggedIn={() => setIdleWarningOpen(false)}
-            onLogout={() => setIdleWarningOpen(false)}
+            onLogout={handleIdleLogout}
           />
         )}
       </CartProvider>

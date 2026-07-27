@@ -1,5 +1,4 @@
-import { getAuthToken } from "@/lib/auth";
-import { refreshAuthToken, logoutUser } from "@/hooks/useAuthRefresh";
+import { getAuthToken, ensureTokenValid, clearAuth } from "@/lib/auth";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -22,17 +21,14 @@ async function call<T = any>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   });
   const data = await res.json();
   
-  // Handle 401 Unauthorized - try to refresh token
-  if (res.status === 401 && retry) {
-    const refreshed = await refreshAuthToken();
-    if (refreshed) {
-      // Retry the request with new token
-      return call<T>(method, path, body, false);
-    } else {
-      // Token refresh failed, logout user
-      logoutUser();
-      throw new Error("Your session has expired. Please log in again.");
-    }
+  // Handle 401/403 - try to refresh token and retry once
+  if ((res.status === 401 || res.status === 403) && retry) {
+    localStorage.setItem('ss-token-expiry', '0');
+    await ensureTokenValid();
+    const newToken = getAuthToken();
+    if (newToken) return call<T>(method, path, body, false);
+    clearAuth();
+    throw new Error("Your session has expired. Please log in again.");
   }
   
   if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
@@ -180,9 +176,12 @@ export interface AdminProduct {
   description: string | null;
   price: number;
   price_usd?: number;
+  original_price?: number | null;
+  original_price_usd?: number | null;
   currency: string;
   quantity_in_stock: number;
   main_image_url: string | null;
+  gallery?: string[];
   badge: string | null;
   fabric: string | null;
   is_active: boolean;
@@ -190,9 +189,16 @@ export interface AdminProduct {
   created_at?: string;
 }
 
-export const fetchAdminProducts = async () => {
-  const r = await call<{ data: AdminProduct[] }>("GET", "/api/products");
-  return r.data;
+export const fetchAdminProducts = async (params?: { category?: string; sub_category?: string; is_active?: boolean; search?: string; page?: number; limit?: number }) => {
+  const qs = new URLSearchParams();
+  if (params?.category) qs.append("category", params.category);
+  if (params?.sub_category) qs.append("sub_category", params.sub_category);
+  if (params?.is_active !== undefined) qs.append("is_active", String(params.is_active));
+  if (params?.search) qs.append("search", params.search);
+  if (params?.page !== undefined) qs.append("page", String(params.page));
+  if (params?.limit !== undefined) qs.append("limit", String(params.limit));
+  const r = await call<{ data: AdminProduct[]; total?: number; page?: number; totalPages?: number }>("GET", `/api/admin/products/list${qs.toString() ? `?${qs}` : ""}`);
+  return r;
 };
 
 export const createProduct = async (product: Partial<AdminProduct> & { colors?: string[]; sizes?: string[] }) => {

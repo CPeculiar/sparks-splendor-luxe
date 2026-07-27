@@ -29,6 +29,7 @@ async function authHeaders() {
 function AdminSubCategories() {
   const [list, setList] = useState<SubCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Partial<SubCategory> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { categories } = useCategories();
@@ -53,8 +54,10 @@ function AdminSubCategories() {
 
   async function save(sc: Partial<SubCategory>) {
     setError(null);
+    setSaving(true);
     try {
       if (!sc.category_id || !sc.name) {
+        setSaving(false);
         return setError("Category and name are required");
       }
       const url = sc.id ? `${API_BASE}/api/sub-categories/${sc.id}` : `${API_BASE}/api/sub-categories`;
@@ -75,6 +78,8 @@ function AdminSubCategories() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -220,8 +225,8 @@ function AdminSubCategories() {
                 <button onClick={() => setEditing(null)} className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100 transition-colors">
                   Cancel
                 </button>
-                <button onClick={() => void save(editing)} className="px-4 py-2 bg-yellow-500 text-gray-900 font-semibold rounded hover:bg-yellow-400 transition-colors">
-                  Save
+                <button onClick={() => void save(editing)} disabled={saving} className="px-4 py-2 bg-yellow-500 text-gray-900 font-semibold rounded hover:bg-yellow-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                  {saving ? "Saving..." : "Save"}
                 </button>
               </div>
             </div>

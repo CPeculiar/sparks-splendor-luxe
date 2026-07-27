@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, X } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Search, Loader2 } from "lucide-react";
 import { fetchAdminProducts, createProduct, updateProduct, deleteProduct, type AdminProduct } from "@/lib/admin";
 import { useCategories } from "@/lib/db-products";
 import { MediaSelector } from "@/components/MediaSelector";
@@ -13,17 +13,58 @@ export const Route = createFileRoute("/admin/products")({
 function AdminProducts() {
   const [list, setList]       = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Partial<AdminProduct> & { colors?: string[]; sizes?: string[] } | null>(null);
+  const [editing, setEditing] = useState<Partial<AdminProduct> & { colors?: string[]; sizes?: string[]; gallery?: string[] } | null>(null);
   const [error, setError]     = useState<string | null>(null);
   const { categories }        = useCategories();
 
-  async function load() {
+  // Pagination + filter state
+  const [page, setPage]           = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal]         = useState(0);
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterStatus, setFilterStatus]     = useState("");
+  const [filterSearch, setFilterSearch]     = useState("");
+  const [searchInput, setSearchInput]       = useState("");
+
+  async function load(p = page, cat = filterCategory, status = filterStatus, search = filterSearch) {
     setLoading(true);
-    try { setList(await fetchAdminProducts()); }
-    catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
+    try {
+      const params: any = { page: p, limit: 20 };
+      if (cat) params.category = cat;
+      if (status !== "") params.is_active = status === "active";
+      if (search) params.search = search;
+      const res = await fetchAdminProducts(params);
+      setList(res.data || []);
+      setTotalPages(res.totalPages || 1);
+      setTotal(res.total || 0);
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
   }
+
   useEffect(() => { void load(); }, []);
+
+  function applyFilters() {
+    setFilterSearch(searchInput);
+    setPage(1);
+    void load(1, filterCategory, filterStatus, searchInput);
+  }
+
+  function handlePageChange(newPage: number) {
+    setPage(newPage);
+    void load(newPage);
+  }
+
+  function handleCategoryFilter(val: string) {
+    setFilterCategory(val);
+    setPage(1);
+    void load(1, val, filterStatus, filterSearch);
+  }
+
+  function handleStatusFilter(val: string) {
+    setFilterStatus(val);
+    setPage(1);
+    void load(1, filterCategory, val, filterSearch);
+  }
 
   async function save(p: Partial<AdminProduct> & { colors?: string[]; sizes?: string[] }) {
     setError(null);
@@ -54,7 +95,7 @@ function AdminProducts() {
           <h1 className="font-display text-3xl md:text-4xl mt-1">Products</h1>
         </div>
         <button
-          onClick={() => setEditing({ name: "", slug: "", price: 0, price_usd: 0, currency: "₦", quantity_in_stock: 0, is_active: true, is_featured: false, colors: [], sizes: ["S","M","L","XL","XXL"] })}
+          onClick={() => setEditing({ name: "", slug: "", price: 0, price_usd: 0, currency: "₦", quantity_in_stock: 0, is_active: true, is_featured: false, colors: [], sizes: ["S","M","L","XL","XXL"], gallery: [] })}
           className="inline-flex items-center gap-2 bg-onyx text-cream px-5 py-3 text-xs tracking-[0.25em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
         >
           <Plus className="h-4 w-4" /> New Product
@@ -63,12 +104,49 @@ function AdminProducts() {
 
       {error && <p className="text-sm text-destructive bg-destructive/10 p-3">{error}</p>}
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-end bg-secondary/20 border border-border p-4">
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1">Category</label>
+          <select value={filterCategory} onChange={(e) => handleCategoryFilter(e.target.value)} className="w-full border border-border bg-background px-3 py-2 text-sm">
+            <option value="">All Categories</option>
+            {categories.map((c) => <option key={(c as any).id || c.slug} value={c.slug}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="min-w-[140px]">
+          <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1">Status</label>
+          <select value={filterStatus} onChange={(e) => handleStatusFilter(e.target.value)} className="w-full border border-border bg-background px-3 py-2 text-sm">
+            <option value="">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-1">Search</label>
+          <div className="flex gap-2">
+            <input
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+              placeholder="Search by name..."
+              className="flex-1 border border-border bg-background px-3 py-2 text-sm"
+            />
+            <button onClick={applyFilters} className="px-3 py-2 bg-onyx text-cream hover:bg-gold hover:text-onyx transition-colors">
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="text-xs text-muted-foreground self-end pb-2">
+          {total} product{total !== 1 ? "s" : ""}
+        </div>
+      </div>
+
       <div className="bg-background border border-border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-secondary/50 text-left">
             <tr>
-              {["", "Name", "Category", "Price NGN", "Price USD", "Stock", "Active", ""].map((h) => (
-                <th key={h} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>
+              {["", "Name", "Category", "Price NGN", "Price USD", "Stock", "Active", ""].map((h, i) => (
+                <th key={`h-${i}`} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>
               ))}
             </tr>
           </thead>
@@ -97,7 +175,18 @@ function AdminProducts() {
                   }
                 </td>
                 <td className="p-3 text-right whitespace-nowrap">
-                  <button onClick={() => setEditing({ ...p, colors: [], sizes: [] })} className="p-2 hover:text-gold-deep" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
+                  <button
+                    onClick={() => setEditing({
+                      ...p,
+                      colors: [],
+                      sizes: [],
+                      // gallery comes as string[] from admin endpoint
+                      gallery: Array.isArray(p.gallery)
+                        ? p.gallery.map((g: any) => typeof g === "string" ? g : g?.image_url ?? g)
+                        : [],
+                    })}
+                    className="p-2 hover:text-gold-deep" aria-label="Edit"
+                  ><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => remove(p)} className="p-2 hover:text-destructive" aria-label="Delete"><Trash2 className="h-4 w-4" /></button>
                 </td>
               </tr>
@@ -105,6 +194,42 @@ function AdminProducts() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between border border-border bg-secondary/20 px-4 py-3">
+          <p className="text-xs text-muted-foreground">Page {page} of {totalPages}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1 || loading}
+              className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs hover:border-gold hover:text-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" /> Prev
+            </button>
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              const pg = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i;
+              return (
+                <button
+                  key={pg}
+                  onClick={() => handlePageChange(pg)}
+                  disabled={loading}
+                  className={`px-3 py-1.5 text-xs border transition-colors ${
+                    pg === page ? "bg-onyx text-cream border-onyx" : "border-border hover:border-gold hover:text-gold"
+                  }`}
+                >{pg}</button>
+              );
+            })}
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages || loading}
+              className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs hover:border-gold hover:text-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <ProductForm
@@ -132,10 +257,14 @@ function ProductForm({
     ...initial,
     _colors:  Array.isArray(initial.colors) ? initial.colors.join(", ") : "",
     _sizes:   Array.isArray(initial.sizes)  ? initial.sizes.join(", ")  : "S, M, L, XL, XXL",
-    _galleryList: Array.isArray(initial.gallery) ? initial.gallery : [],
+    // Ensure gallery items are strings (not objects)
+    _galleryList: Array.isArray(initial.gallery)
+      ? initial.gallery.map((g: any) => typeof g === "string" ? g : g?.image_url ?? "").filter(Boolean)
+      : [],
   });
   const [subCategories, setSubCategories] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (p.category_id) {
@@ -156,7 +285,6 @@ function ProductForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // Validate both prices are provided
     if (!p.price || p.price <= 0) {
       setError("NGN price must be greater than 0");
       return;
@@ -166,12 +294,20 @@ function ProductForm({
       return;
     }
 
-    onSave({
+    setSaving(true);
+    const result = onSave({
       ...p,
       colors:  p._colors.split(",").map((s) => s.trim()).filter(Boolean),
       sizes:   p._sizes.split(",").map((s) => s.trim()).filter(Boolean),
+      // Always send gallery so existing images are preserved (even empty array keeps them unchanged if not provided)
       gallery: p._galleryList && p._galleryList.length > 0 ? p._galleryList : undefined,
     });
+    // If onSave returns a promise, clear saving when it resolves
+    if (result && typeof (result as any).finally === "function") {
+      (result as Promise<void>).finally(() => setSaving(false));
+    } else {
+      setSaving(false);
+    }
   }
 
   return (
@@ -236,7 +372,7 @@ function ProductForm({
           <MediaSelector
             label="Main Image"
             onSelect={(url) => set("main_image_url", url)}
-            value={p.main_image_url}
+            value={p.main_image_url ?? undefined}
           />
           <Row label="Main Image URL"><input value={p.main_image_url ?? ""} onChange={(e) => set("main_image_url", e.target.value)} className="inp" placeholder="https://res.cloudinary.com/..." /></Row>
           <GallerySelector
@@ -246,7 +382,9 @@ function ProductForm({
 
           <div className="grid grid-cols-2 gap-4">
             <Row label="Colors (comma-sep)"><input value={p._colors} onChange={(e) => set("_colors", e.target.value)} className="inp" placeholder="Onyx, Ivory, Gold" /></Row>
+            {/* Sizes field hidden for bespoke suits - uncomment if needed for other product types
             <Row label="Sizes (comma-sep)"><input value={p._sizes} onChange={(e) => set("_sizes", e.target.value)} className="inp" placeholder="S, M, L, XL, XXL" /></Row>
+            */}
           </div>
 
           <Row label="Fabric"><input value={p.fabric ?? ""} onChange={(e) => set("fabric", e.target.value)} className="inp" /></Row>
@@ -265,7 +403,14 @@ function ProductForm({
 
           <div className="pt-4 flex gap-3">
             <button type="button" onClick={onCancel} className="flex-1 border border-border py-3 text-xs tracking-[0.25em] uppercase hover:border-gold">Cancel</button>
-            <button type="submit" className="flex-1 bg-onyx text-cream py-3 text-xs tracking-[0.25em] uppercase hover:bg-gold hover:text-onyx transition-colors">Save</button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 bg-onyx text-cream py-3 text-xs tracking-[0.25em] uppercase hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              {saving ? "Saving..." : "Save"}
+            </button>
           </div>
         </form>
         <style>{`.inp{width:100%;padding:.6rem .75rem;border:1px solid var(--border);background:#fff;color:#111;font-size:.875rem;outline:none;border-radius:0}.inp:focus{border-color:var(--gold)}.inp option{background:#fff;color:#111}`}</style>

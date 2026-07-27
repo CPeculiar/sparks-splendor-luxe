@@ -151,7 +151,10 @@ export function Header() {
 
   useEffect(() => { setMobile(false); }, [pathname]);
   useEffect(() => {
-    setAuthUser(isAuthenticated() ? getCurrentUser() : null);
+    const sync = () => setAuthUser(isAuthenticated() ? getCurrentUser() : null);
+    sync();
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
   }, [pathname]);
 
   const transparent = isHome && !scrolled;
@@ -223,7 +226,7 @@ export function Header() {
     <>
       {/* announcement bar */}
       <div className="hidden md:block bg-onyx text-cream text-[11px] tracking-[0.3em] uppercase py-2 text-center font-medium">
-        Complimentary worldwide shipping on orders above ₦500,000 · Bespoke fittings by appointment
+         Crafted For Distinction · Tailored To Perfection · Bespoke fittings by appointment
       </div>
 
       <header

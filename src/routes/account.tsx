@@ -339,15 +339,9 @@ function AccountPage() {
   }, []);
 
   const handleLogout = () => {
-    // Cancel Google Sign-In button rendering if it exists
     if (window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.cancel();
-      } catch (e) {
-        console.warn("Could not cancel Google Sign-In:", e);
-      }
+      try { window.google.accounts.id.cancel(); } catch {}
     }
-    
     logout();
     setUser(null);
     setEmail("");
@@ -362,6 +356,9 @@ function AccountPage() {
     setProfileToast(null);
     setShowAddressForm(false);
     setEditingAddressId(null);
+    setGsiReady(false);
+    // Replace history so back navigation can't return to the authenticated view
+    window.history.replaceState(null, "", "/account");
   };
 
   const handleResendVerification = async () => {
@@ -484,12 +481,15 @@ function AccountPage() {
     };
   });
 
-  // Re-render Google button when switching to signin/signup mode
+  // Re-render Google button when switching to signin/signup mode or after logout
   useEffect(() => {
+    if (user) return;
     if (mode === "signin" || mode === "signup") {
-      setTimeout(() => renderGoogleButton(), 50);
+      // Use a short delay to ensure the ref div is mounted after user state clears
+      const id = setTimeout(() => renderGoogleButton(), 80);
+      return () => clearTimeout(id);
     }
-  }, [mode, renderGoogleButton]);
+  }, [mode, user, renderGoogleButton]);
 
   const renderStatus = () => {
     return status ? <p className="text-sm text-success">{status}</p> : null;

@@ -30,6 +30,8 @@ function rowToProduct(r: any): Product {
     sub_category: r.sub_category ?? null,
     price: Number(r.price),
     price_usd: r.price_usd ? Number(r.price_usd) : undefined,
+    original_price: r.original_price ? Number(r.original_price) : null,
+    original_price_usd: r.original_price_usd ? Number(r.original_price_usd) : null,
     display_price: displayPrice,
     display_currency: displayCurrency,
     currency_symbol: currencySymbol,

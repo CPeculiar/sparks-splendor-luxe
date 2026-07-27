@@ -58,35 +58,35 @@ function isTokenExpiringSoon(): boolean {
   return timeUntilExpiry < 60000; // also catches already-expired (negative value)
 }
 
+let _refreshPromise: Promise<boolean> | null = null;
+
 export async function ensureTokenValid(): Promise<void> {
   if (!isTokenExpiringSoon()) return;
   const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    clearAuth();
-    return;
+  if (!refreshToken) return; // let the 401 retry handle it
+
+  // Deduplicate concurrent refresh calls
+  if (!_refreshPromise) {
+    _refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const data = await response.json();
+        if (!response.ok) return false;
+        saveToken(data.token, "15m");
+        if (data.refreshToken) saveRefreshToken(data.refreshToken);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        _refreshPromise = null;
+      }
+    })();
   }
-
-  try {
-    const response = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      clearAuth();
-      throw new Error(data?.error || "Token refresh failed");
-    }
-
-    saveToken(data.token, "15m");
-    if (data.refreshToken) {
-      saveRefreshToken(data.refreshToken);
-    }
-  } catch (error) {
-    console.error("Token refresh error:", error);
-    clearAuth();
-  }
+  await _refreshPromise;
 }
 
 export function getCurrentUser(): AuthUser | null {
@@ -108,9 +108,18 @@ export function clearAuth() {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   localStorage.removeItem(TOKEN_EXPIRY_KEY);
+  // Notify same-tab listeners (storage event only fires cross-tab natively)
+  window.dispatchEvent(new Event("storage"));
 }
 
-async function fetchJson<T>(path: string, options: RequestInit = {}) {
+export async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return fetchJson<T>(path, {
+    method,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
+async function fetchJson<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
   await ensureTokenValid();
   const token = getAuthToken();
   const headers: Record<string, string> = {
@@ -122,10 +131,30 @@ async function fetchJson<T>(path: string, options: RequestInit = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  });
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  // If 401/403 and we haven't retried yet, force-refresh the token and retry once
+  if ((response.status === 401 || response.status === 403) && !isRetry) {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+        const refreshData = await refreshRes.json();
+        if (refreshRes.ok && refreshData.token) {
+          saveToken(refreshData.token, "15m");
+          if (refreshData.refreshToken) saveRefreshToken(refreshData.refreshToken);
+          return fetchJson<T>(path, options, true);
+        }
+      } catch {}
+    }
+    // Refresh failed — clear auth and notify
+    clearAuth();
+    throw new Error("Session expired. Please sign in again.");
+  }
 
   const data = await response.json();
   if (!response.ok) {

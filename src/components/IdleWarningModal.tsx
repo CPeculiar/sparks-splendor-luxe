@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Clock, LogOut, LogIn } from 'lucide-react';
-import { refreshAuthToken, logoutUser } from '@/hooks/useAuthRefresh';
+import { ensureTokenValid, clearAuth } from '@/lib/auth';
 
 interface IdleWarningModalProps {
   open: boolean;
@@ -15,16 +15,17 @@ export function IdleWarningModal({ open, secondsLeft, onStayLoggedIn, onLogout }
   async function handleStayLoggedIn() {
     setIsRefreshing(true);
     try {
-      const success = await refreshAuthToken();
-      if (success) {
+      // Force expiry so ensureTokenValid always refreshes
+      localStorage.setItem('ss-token-expiry', '0');
+      await ensureTokenValid();
+      const token = localStorage.getItem('ss-auth-token');
+      if (token) {
         onStayLoggedIn();
       } else {
-        // Token refresh failed, logout
-        logoutUser();
+        clearAuth();
         onLogout();
       }
-    } catch (error) {
-      console.error('Error refreshing token:', error);
+    } catch {
       onLogout();
     } finally {
       setIsRefreshing(false);
@@ -32,7 +33,7 @@ export function IdleWarningModal({ open, secondsLeft, onStayLoggedIn, onLogout }
   }
 
   function handleLogout() {
-    logoutUser();
+    clearAuth();
     onLogout();
   }
 

@@ -39,7 +39,7 @@ export function MediaSelector({ onSelect, label = "Select Media", value }: Media
   function handleAdd() {
     if (pending) {
       onSelect(pending);
-      // Don't close the modal - let user select multiple or close manually
+      setOpen(false);
     }
   }
 

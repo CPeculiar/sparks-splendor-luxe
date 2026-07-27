@@ -11,6 +11,8 @@ export interface Product {
   sub_category?: string | null;
   price: number;
   price_usd?: number;
+  original_price?: number | null;
+  original_price_usd?: number | null;
   display_price: number;
   display_currency: "NGN" | "USD";
   currency_symbol: string;

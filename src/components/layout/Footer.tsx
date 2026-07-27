@@ -93,9 +93,9 @@ export function Footer () {
         <div className="col-span-2 md:col-span-1">
           <h4 className="text-eyebrow text-gold mb-4">Atelier</h4>
           <ul className="space-y-3 text-sm text-cream/70">
-            <li className="flex gap-2 items-start"><MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" /> Block 1, House 1, Spring Garden Estate, Orchid Road,
+            <li className="flex gap-2 items-start"><MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" /> 2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
               Lekki, Lagos State, Nigeria</li>
-            <li className="flex gap-2 items-start"><Phone className="h-4 w-4 text-gold shrink-0 mt-0.5" /> +234 813 703 7919</li>
+            <li className="flex gap-2 items-start"><Phone className="h-4 w-4 text-gold shrink-0 mt-0.5" /> +234 905 357 2403</li>
             <li className="flex gap-2 items-start"><Mail className="h-4 w-4 text-gold shrink-0 mt-0.5" /> support@sparksandsplendour.com</li>
           </ul>
         </div>

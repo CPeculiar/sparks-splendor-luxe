@@ -1,7 +1,9 @@
 import { createFileRoute, Outlet, Link, useRouterState, useNavigate, redirect } from "@tanstack/react-router";
-import { useState } from "react";
-import { LayoutDashboard, Package, ShoppingBag, Receipt, Users, LogOut, ShieldCheck, Sparkles, Tags, Image, Sliders, BarChart3, FileText, Bell, BookOpen, Database, Settings, Mail, MessageSquare, Star, MapPin } from "lucide-react";
+import { useState, useCallback } from "react";
+import { LayoutDashboard, Package, ShoppingBag, Receipt, Users, LogOut, ShieldCheck, Sparkles, Tags, Image, Sliders, BarChart3, FileText, Bell, BookOpen, Database, Settings, Mail, MessageSquare, Star, Loader2 } from "lucide-react";
 import { getCurrentUser, isAuthenticated, logout } from "@/lib/auth";
+import { useAuthRefresh } from "@/hooks/useAuthRefresh";
+import { IdleWarningModal } from "@/components/IdleWarningModal";
 
 export const Route = createFileRoute("/admin")({
   beforeLoad: ({ location }) => {
@@ -60,14 +62,43 @@ const NAV = [
 
 function AdminLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isLoading = useRouterState({ select: (s) => s.status === "pending" });
   const navigate = useNavigate();
   const user = getCurrentUser();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [idleOpen, setIdleOpen] = useState(false);
+  const [idleSeconds, setIdleSeconds] = useState(60);
+
+  const handleIdleWarning = useCallback((secondsLeft: number) => {
+    setIdleSeconds(secondsLeft);
+    setIdleOpen(true);
+  }, []);
+
+  const handleIdleLogout = useCallback(() => {
+    setIdleOpen(false);
+    logout();
+    navigate({ to: "/admin/login" });
+  }, [navigate]);
+
+  const handleStayLoggedIn = useCallback(() => {
+    setIdleOpen(false);
+  }, []);
+
+  useAuthRefresh(
+    pathname !== "/admin/login" ? handleIdleWarning : undefined,
+    pathname !== "/admin/login" ? handleIdleLogout : undefined,
+  );
 
   if (pathname === "/admin/login") return <Outlet />;
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-secondary/20 flex flex-row">
+      <IdleWarningModal
+        open={idleOpen}
+        secondsLeft={idleSeconds}
+        onStayLoggedIn={handleStayLoggedIn}
+        onLogout={handleIdleLogout}
+      />
       {/* Mobile sidebar toggle */}
       <div className="md:hidden fixed top-16 left-4 z-40 bg-onyx text-cream p-2 rounded">
         <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1 hover:text-gold">
@@ -142,7 +173,13 @@ function AdminLayout() {
 
       {/* Main content */}
       <main className="flex-1 p-4 md:p-8 overflow-auto md:ml-0">
-        <Outlet />
+        {isLoading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-gold" />
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   );

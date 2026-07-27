@@ -1,97 +1,54 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { ensureTokenValid } from '@/lib/auth';
 
-const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-const WARNING_BEFORE_LOGOUT = 60 * 1000; // Show warning 1 minute before logout
+const IDLE_TIMEOUT = 10 * 60 * 1000;
+const WARNING_BEFORE_LOGOUT = 60 * 1000;
+const PROACTIVE_REFRESH_INTERVAL = 4 * 60 * 1000;
 
 export function useAuthRefresh(onIdleWarning?: (secondsLeft: number) => void, onLogout?: () => void) {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const proactiveRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const resetIdleTimer = useCallback(() => {
-    // Clear existing timers
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
 
-    // Set new warning timeout (shows at 1 minute mark)
     warningTimeoutRef.current = setTimeout(() => {
       let secondsLeft = 60;
       onIdleWarning?.(secondsLeft);
 
-      // Start countdown interval
       warningIntervalRef.current = setInterval(() => {
         secondsLeft--;
         onIdleWarning?.(secondsLeft);
-        if (secondsLeft <= 0) {
-          clearInterval(warningIntervalRef.current!);
-        }
+        if (secondsLeft <= 0) clearInterval(warningIntervalRef.current!);
       }, 1000);
     }, IDLE_TIMEOUT - WARNING_BEFORE_LOGOUT);
 
-    // Set logout timeout
     timeoutRef.current = setTimeout(() => {
       onLogout?.();
     }, IDLE_TIMEOUT);
   }, [onIdleWarning, onLogout]);
 
   useEffect(() => {
-    // List of user activity events
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-
-    const handleActivity = () => {
-      resetIdleTimer();
-    };
-
-    // Add event listeners
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity);
-    });
-
-    // Initialize timer
+    const handleActivity = () => resetIdleTimer();
+    events.forEach((e) => document.addEventListener(e, handleActivity));
     resetIdleTimer();
 
-    // Cleanup
+    // Proactively refresh token every 4 minutes while the tab is active
+    proactiveRefreshRef.current = setInterval(() => {
+      ensureTokenValid();
+    }, PROACTIVE_REFRESH_INTERVAL);
+
     return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity);
-      });
+      events.forEach((e) => document.removeEventListener(e, handleActivity));
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
       if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+      if (proactiveRefreshRef.current) clearInterval(proactiveRefreshRef.current);
     };
   }, [resetIdleTimer]);
-}
-
-export async function refreshAuthToken(): Promise<boolean> {
-  try {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}/api/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-      },
-    });
-
-    if (!response.ok) {
-      return false;
-    }
-
-    const data = await response.json();
-    if (data.token) {
-      localStorage.setItem('token', data.token);
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Token refresh failed:', error);
-    return false;
-  }
-}
-
-export function logoutUser() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  // Redirect to login
-  window.location.href = '/login';
 }
