@@ -15,7 +15,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
   const requiredNGN = isComp ? product.components!.filter(c => c.is_required).reduce((s, c) => s + c.price, 0) : 0;
   const requiredUSD = isComp ? product.components!.filter(c => c.is_required).reduce((s, c) => s + (c.price_usd ?? 0), 0) : 0;
   const currentPrice = isComp
-    ? (product.display_currency === "USD" ? (requiredUSD || requiredNGN) : requiredNGN) || product.price
+    ? (product.display_currency === "USD" ? (requiredUSD || requiredNGN) : requiredNGN)
     : (product.display_currency === "USD" ? product.price_usd || product.price : product.price);
   const originalPrice = isComp ? undefined : (product.display_currency === "USD" ? product.original_price_usd : product.original_price);
 

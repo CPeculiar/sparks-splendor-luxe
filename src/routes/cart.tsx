@@ -17,17 +17,19 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 declare global {
   interface Window {
-    PaystackPop?: {
-      setup: (opts: {
-        key: string;
-        email: string;
-        amount: number;
+    PaystackPop?: new () => {
+      newTransaction: (opts: {
+        key?: string;
+        email?: string;
+        amount?: number;
         currency?: string;
         ref?: string;
+        accessCode?: string;
+        channels?: string[];
         metadata?: unknown;
-        callback: (res: { reference: string }) => void;
-        onClose: () => void;
-      }) => { openIframe: () => void };
+        onSuccess: (res: { reference: string }) => void;
+        onCancel: () => void;
+      }) => void;
     };
   }
 }
@@ -43,7 +45,7 @@ function loadPaystack(): Promise<void> {
       return;
     }
     const s = document.createElement("script");
-    s.src = "https://js.paystack.co/v1/inline.js";
+    s.src = "https://js.paystack.co/v2/inline.js";
     s.async = true;
     s.dataset.paystack = "1";
     s.onload = () => resolve();
@@ -82,6 +84,9 @@ function CartPage() {
     items?: { product_name: string; quantity: number; unit_price: number; size?: string; color?: string }[];
     customerName?: string;
   } | null>(null);
+  const [abandonedOrderId, setAbandonedOrderId] = useState<string | null>(null);
+  const [abandonedPaymentInfo, setAbandonedPaymentInfo] = useState<{ orderId: string; orderNumber?: string; items: any[]; amount: number; currency: string; reference: string; email: string } | null>(null);
+  const [failedModal, setFailedModal] = useState<{ message: string } | null>(null);
   const emailRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -126,9 +131,19 @@ function CartPage() {
     }
   };
 
+  const isFormValid =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) &&
+    firstName.trim() !== "" &&
+    lastName.trim() !== "" &&
+    phone.trim() !== "" &&
+    streetAddress.trim() !== "" &&
+    city.trim() !== "" &&
+    state.trim() !== "" &&
+    country.trim() !== "";
+
   const shippingFree = subtotal >= 500_000;
   //const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 15_000;
-   const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 5;
+  const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 5;
   const discountAmount = appliedCoupon
     ? appliedCoupon.discount_type === "percentage"
       ? (subtotal * appliedCoupon.discount_value) / 100
@@ -173,7 +188,8 @@ function CartPage() {
     });
 
     if (!res.ok) {
-      throw new Error("Failed to create order");
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || errData.message || "Failed to create order");
     }
 
     const data = await res.json();
@@ -208,6 +224,7 @@ function CartPage() {
       amount: data.data.amount,
       currency: data.data.currency,
       reference: data.data.reference,
+      accessCode: data.data.access_code as string | undefined,
     };
   };
 
@@ -228,7 +245,7 @@ function CartPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setError("Payment could not be verified. If you were charged, please contact support.");
+        setFailedModal({ message: "Payment could not be verified. If you were charged, please contact support with ref: " + reference });
         return;
       }
       setSuccess({
@@ -240,7 +257,7 @@ function CartPage() {
       });
       clear();
     } catch (err) {
-      setError("Payment verification failed. Please contact support with reference: " + reference);
+      setFailedModal({ message: "Payment verification failed. Please contact support with reference: " + reference });
     } finally {
       setVerifying(false);
     }
@@ -272,6 +289,11 @@ function CartPage() {
       return;
     }
 
+    if (!streetAddress.trim()) { setError("Please enter your street address."); return; }
+    if (!city.trim()) { setError("Please enter your city."); return; }
+    if (!country.trim()) { setError("Please enter your country."); return; }
+    if (!state.trim()) { setError("Please enter your state."); return; }
+
     if (items.length === 0) {
       setError("Your bag is empty.");
       return;
@@ -293,13 +315,25 @@ function CartPage() {
         throw new Error("Paystack failed to load.");
       }
 
-      // 4. Setup Paystack with backend-provided amount
-      const handler = window.PaystackPop.setup({
+      // 4. Setup Paystack v2 — use access_code from server-side init for full channel support
+      const popup = new window.PaystackPop();
+      popup.newTransaction({
+        ...(paymentInfo.accessCode
+          ? { accessCode: paymentInfo.accessCode }
+          : {
+              key: PAYSTACK_KEY,
+              email: value,
+              amount: paymentInfo.amount,
+              currency: paymentInfo.currency,
+              ref: paymentInfo.reference,
+              channels: ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money", "eft"],
+            }),
         key: PAYSTACK_KEY,
         email: value,
         amount: paymentInfo.amount,
         currency: paymentInfo.currency,
         ref: paymentInfo.reference,
+        channels: ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money", "eft"],
         metadata: {
           custom_fields: [
             {
@@ -311,27 +345,55 @@ function CartPage() {
             },
           ],
         },
-        callback: (res) => {
+        onSuccess: (res) => {
           setPaying(false);
           if (orderInfo) {
             void verifyAndConfirm(res.reference, orderInfo);
           }
         },
-        onClose: () => {
+        onCancel: () => {
           setPaying(false);
           if (orderInfo) {
             void abandonOrder(orderInfo.orderId);
+            setAbandonedOrderId(orderInfo.orderId);
+            setAbandonedPaymentInfo({ ...orderInfo, amount: paymentInfo.amount, currency: paymentInfo.currency, reference: paymentInfo.reference, email: value });
           }
-          setError("Payment cancelled. Your order has been saved — you can retry payment by placing the order again.");
         },
       });
-      handler.openIframe();
     } catch (e) {
       setPaying(false);
       const errorMsg = e instanceof Error ? e.message : "Payment could not be initiated.";
-      setError(errorMsg);
+      setFailedModal({ message: errorMsg });
       console.error("Payment flow error:", e);
     }
+  };
+
+  const retryPayment = async () => {
+    setFailedModal(null);
+    setError(null);
+    await handlePay();
+  };
+
+  const retryAbandonedPayment = () => {
+    if (!abandonedPaymentInfo || !window.PaystackPop) return;
+    const info = abandonedPaymentInfo;
+    setAbandonedOrderId(null);
+    const popup = new window.PaystackPop();
+    popup.newTransaction({
+      key: PAYSTACK_KEY,
+      email: info.email,
+      amount: info.amount,
+      currency: info.currency,
+      ref: info.reference,
+      channels: ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money", "eft"],
+      onSuccess: (res) => {
+        void verifyAndConfirm(res.reference, { orderId: info.orderId, orderNumber: info.orderNumber, items: info.items });
+      },
+      onCancel: () => {
+        void abandonOrder(info.orderId);
+        setAbandonedOrderId(info.orderId);
+      },
+    });
   };
 
   if (success) {
@@ -339,78 +401,62 @@ function CartPage() {
       `Hello Sparks & Splendour! I just placed order ${success.orderNumber || success.ref}. I'd like to follow up on my order.`
     );
     return (
-      <section className="container-luxe py-16 md:py-24">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="text-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+        <div className="bg-background border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="p-8 text-center">
             <div className="w-16 h-16 mx-auto rounded-full bg-gold/15 flex items-center justify-center">
               <CheckCircle2 className="h-8 w-8 text-gold-deep" />
             </div>
             <p className="text-eyebrow mt-6 text-gold">Order Confirmed</p>
-            <h1 className="font-serif-luxe text-4xl md:text-5xl mt-3">Thank You{success.customerName ? `, ${success.customerName.split(" ")[0]}` : ""}!</h1>
-            <p className="mt-4 text-muted-foreground max-w-md mx-auto leading-relaxed">
-              Your payment was successful and your order has been received. We appreciate your trust in Sparks &amp; Splendour — our team will reach out to you shortly to confirm your bespoke order details.
+            <h2 className="font-display text-3xl mt-2">Thank You{success.customerName ? `, ${success.customerName.split(" ")[0]}` : ""}!</h2>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              Your payment was successful and your order has been received. We'll reach out shortly to confirm your order details.
             </p>
           </div>
 
-          {/* Order summary card */}
-          <div className="mt-10 border border-border bg-secondary/20">
-            <div className="p-5 border-b border-border flex items-center justify-between">
+          <div className="border-t border-border mx-6">
+            <div className="py-4 flex items-center justify-between">
               <div>
                 <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Order Number</p>
-                <p className="font-mono font-bold text-lg mt-0.5">{success.orderNumber || "—"}</p>
+                <p className="font-mono font-bold mt-0.5">{success.orderNumber || "—"}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Payment Reference</p>
+                <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Reference</p>
                 <p className="font-mono text-xs mt-0.5 text-muted-foreground">{success.ref}</p>
               </div>
             </div>
-
-            {/* Items */}
-            {success.items && success.items.length > 0 && (
-              <div className="divide-y divide-border">
-                {success.items.map((item, i) => (
-                  <div key={i} className="flex justify-between items-center px-5 py-3 text-sm">
-                    <div>
-                      <p className="font-medium">{item.product_name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Qty: {item.quantity}{item.size ? ` · Size: ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""}
-                      </p>
-                    </div>
-                    <span className="tabular-nums text-sm font-medium">{format(item.unit_price * item.quantity)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="p-5 border-t border-border flex justify-between items-center">
-              <span className="font-medium">Total Paid</span>
-              <span className="font-display text-xl tabular-nums text-gold-deep">{format(success.total)}</span>
-            </div>
           </div>
 
-          {/* Actions */}
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <a
-              href={`https://wa.me/${WHATSAPP_PHONE}?text=${waMsg}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 inline-flex items-center justify-center gap-3 bg-[#25D366] text-white py-4 text-xs tracking-[0.25em] uppercase font-semibold hover:bg-[#1ebe5d] transition-colors"
-            >
-              <svg viewBox="0 0 32 32" className="w-5 h-5 fill-current" aria-hidden="true">
-                <path d="M19.11 17.205c-.372 0-1.088 1.39-1.518 1.39a.63.63 0 0 1-.315-.094c-.4-.18-.8-.36-1.2-.55-1.6-.751-3.05-1.92-4.18-3.36a16.7 16.7 0 0 1-1.16-1.65c-.25-.4-.43-.85-.43-1.31 0-.45.21-.78.39-1.1.18-.32.69-.78.92-1.06.16-.2.21-.4.21-.6 0-.4-.94-2.36-1.06-2.61-.31-.65-.52-.7-.84-.71h-.79c-.27 0-.7.1-1.05.5-.36.4-1.36 1.32-1.36 3.21 0 1.89 1.39 3.72 1.59 3.97.2.25 2.74 4.18 6.6 5.8 3.86 1.62 4.55 1.42 5.36 1.34.81-.08 2.79-1.14 3.18-2.24.39-1.1.39-2.04.27-2.24-.12-.2-.42-.32-.88-.49-.46-.17-2.74-1.36-3.16-1.51l-.31-.07ZM16.05 6.5c-5.27 0-9.55 4.28-9.55 9.55 0 1.85.55 3.66 1.59 5.21l-1.04 3.79 3.88-1.02a9.45 9.45 0 0 0 5.12 1.51c5.27 0 9.55-4.28 9.55-9.55s-4.28-9.49-9.55-9.49Z"/>
-              </svg>
-              Chat Us on WhatsApp
-            </a>
+          {success.items && success.items.length > 0 && (
+            <div className="mx-6 border border-border divide-y divide-border mb-4">
+              {success.items.map((item, i) => (
+                <div key={i} className="flex justify-between items-center px-4 py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{item.product_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Qty: {item.quantity}{item.size ? ` · Size: ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""}
+                    </p>
+                  </div>
+                  <span className="tabular-nums text-sm font-medium">{format(item.unit_price * item.quantity)}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center px-4 py-3">
+                <span className="font-medium text-sm">Total Paid</span>
+                <span className="font-display text-lg tabular-nums text-gold-deep">{format(success.total)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="p-6 pt-2">
             <Link
-              to="/shop"
-              className="flex-1 inline-flex items-center justify-center bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
+              to="/"
+              className="w-full inline-flex items-center justify-center bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
             >
-              Continue Shopping
+              Back to Home
             </Link>
           </div>
         </div>
-      </section>
+      </div>
     );
   }
 
@@ -430,7 +476,64 @@ function CartPage() {
   }
 
   return (
-    <section className="container-luxe py-10 md:py-16">
+    <>
+      {/* Abandoned modal */}
+      {abandonedOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-background border border-border w-full max-w-md p-8 space-y-5">
+            <div className="text-center">
+              <p className="text-eyebrow text-amber-500">Payment Incomplete</p>
+              <h2 className="font-display text-2xl mt-2">Order Not Completed</h2>
+              <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                You closed the payment window before completing your payment. Your order has been saved.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={retryAbandonedPayment}
+                className="w-full bg-onyx text-cream py-3.5 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
+              >
+                Pay Now
+              </button>
+              <button
+                onClick={() => setAbandonedOrderId(null)}
+                className="w-full border border-border py-3.5 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-secondary transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Failed modal */}
+      {failedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-background border border-border w-full max-w-md p-8 space-y-5">
+            <div className="text-center">
+              <p className="text-eyebrow text-destructive">Payment Failed</p>
+              <h2 className="font-display text-2xl mt-2">Something Went Wrong</h2>
+              <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{failedModal.message}</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={retryPayment}
+                className="w-full bg-onyx text-cream py-3.5 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
+              >
+                Retry Payment
+              </button>
+              <button
+                onClick={() => setFailedModal(null)}
+                className="w-full border border-border py-3.5 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-secondary transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <section className="container-luxe py-10 md:py-16">
       <div className="text-center mb-10 md:mb-14">
         <p className="text-eyebrow">Checkout</p>
         <h1 className="font-display text-4xl md:text-5xl mt-3">Your Order</h1>
@@ -541,7 +644,7 @@ function CartPage() {
             </div>
 
             <div>
-              <label htmlFor="email" className="text-eyebrow block mb-2">Email</label>
+              <label htmlFor="email" className="text-eyebrow block mb-2">Email <span className="text-destructive">*</span></label>
               <input
                 id="email"
                 ref={emailRef}
@@ -557,43 +660,43 @@ function CartPage() {
 
             <div className="grid gap-4">
               <div>
-                <label htmlFor="firstName" className="text-eyebrow block mb-2">First name</label>
+                <label htmlFor="firstName" className="text-eyebrow block mb-2">First name <span className="text-destructive">*</span></label>
                 <input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
               </div>
               <div>
-                <label htmlFor="lastName" className="text-eyebrow block mb-2">Last name</label>
+                <label htmlFor="lastName" className="text-eyebrow block mb-2">Last name <span className="text-destructive">*</span></label>
                 <input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
               </div>
               <div>
-                <label htmlFor="phone" className="text-eyebrow block mb-2">Phone</label>
+                <label htmlFor="phone" className="text-eyebrow block mb-2">Phone <span className="text-destructive">*</span></label>
                 <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
               </div>
               <div>
-                <label htmlFor="streetAddress" className="text-eyebrow block mb-2">Street address</label>
+                <label htmlFor="streetAddress" className="text-eyebrow block mb-2">Street address <span className="text-destructive">*</span></label>
                 <input id="streetAddress" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="city" className="text-eyebrow block mb-2">City</label>
+                  <label htmlFor="city" className="text-eyebrow block mb-2">City <span className="text-destructive">*</span></label>
                   <input id="city" value={city} onChange={(e) => setCity(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
                 </div>
                 <div>
-                  <label htmlFor="country" className="text-eyebrow block mb-2">Country</label>
+                  <label htmlFor="country" className="text-eyebrow block mb-2">Country <span className="text-destructive">*</span></label>
                   <input id="country" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
                 </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="state" className="text-eyebrow block mb-2">State</label>
+                  <label htmlFor="state" className="text-eyebrow block mb-2">State <span className="text-destructive">*</span></label>
                   <input id="state" value={state} onChange={(e) => setState(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
                 </div>
                 <div>
-                  <label htmlFor="postalCode" className="text-eyebrow block mb-2">Postal code</label>
+                  <label htmlFor="postalCode" className="text-eyebrow block mb-2">Postal code <span className="text-muted-foreground">(optional)</span></label>
                   <input id="postalCode" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
                 </div>
               </div>
               <div>
-                <label htmlFor="notes" className="text-eyebrow block mb-2">Notes</label>
+                <label htmlFor="notes" className="text-eyebrow block mb-2">Notes <span className="text-muted-foreground">(optional)</span></label>
                 <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold min-h-[100px]" />
               </div>
             </div>
@@ -602,7 +705,7 @@ function CartPage() {
 
             <button
               onClick={handlePay}
-              disabled={paying || verifying}
+              disabled={paying || verifying || !isFormValid}
               className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
             >
               <Lock className="h-3.5 w-3.5" />
@@ -618,5 +721,6 @@ function CartPage() {
         </aside>
       </div>
     </section>
+    </>
   );
 }
