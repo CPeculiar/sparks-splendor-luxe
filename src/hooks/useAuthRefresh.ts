@@ -10,8 +10,11 @@ export function useAuthRefresh(onIdleWarning?: (secondsLeft: number) => void, on
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const proactiveRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track last activity time in localStorage so a fresh login always resets the clock
+  const LAST_ACTIVITY_KEY = 'ss-last-activity';
 
   const resetIdleTimer = useCallback(() => {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
@@ -33,6 +36,8 @@ export function useAuthRefresh(onIdleWarning?: (secondsLeft: number) => void, on
   }, [onIdleWarning, onLogout]);
 
   useEffect(() => {
+    // Always reset the clock on mount — covers fresh logins
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
     const handleActivity = () => resetIdleTimer();
     events.forEach((e) => document.addEventListener(e, handleActivity));

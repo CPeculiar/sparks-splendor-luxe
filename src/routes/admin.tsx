@@ -92,7 +92,7 @@ function AdminLayout() {
   if (pathname === "/admin/login") return <Outlet />;
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-secondary/20 flex flex-row">
+    <div className="min-h-screen bg-secondary/20 flex flex-row">
       <IdleWarningModal
         open={idleOpen}
         secondsLeft={idleSeconds}
@@ -110,7 +110,7 @@ function AdminLayout() {
 
       {/* Sidebar */}
       <aside className={`
-        w-72 bg-onyx text-cream flex flex-col fixed md:relative top-16 md:top-0 left-0 h-[calc(100vh-4rem)]
+        w-72 bg-onyx text-cream flex flex-col fixed md:sticky top-0 left-0 h-screen
         z-30 md:z-0
         transition-transform duration-300
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}

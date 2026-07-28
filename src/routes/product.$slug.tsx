@@ -1,8 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Heart, Minus, Plus, Scissors, Shield, Star, Truck, ChevronRight, X } from "lucide-react";
-import { useProduct } from "@/lib/db-products";
-import { getRelated } from "@/lib/products";
+import { useProduct, useProducts } from "@/lib/db-products";
 import { ProductCard } from "@/components/ProductCard";
 import { PriceDisplay } from "@/components/PriceDisplay";
 import { useCart } from "@/lib/cart";
@@ -18,6 +17,7 @@ export const Route = createFileRoute("/product/$slug")({
 function ProductPage() {
   const { slug } = Route.useParams();
   const { product, loading } = useProduct(slug);
+  const { products: relatedProducts } = useProducts({ category: product?.category });
   const { add } = useCart();
   const { format } = useCurrency();
   // const [size, setSize] = useState<string>("");
@@ -139,15 +139,14 @@ function ProductPage() {
     }
   };
 
+  // Scroll to top and show loader whenever slug changes
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [slug]);
+
   if (loading) {
     return (
-      <div className="container-luxe py-20 grid lg:grid-cols-2 gap-10">
-        <div className="aspect-[4/5] bg-muted animate-pulse" />
-        <div className="space-y-4 py-4">
-          <div className="h-4 bg-muted animate-pulse w-24" />
-          <div className="h-10 bg-muted animate-pulse w-3/4" />
-          <div className="h-6 bg-muted animate-pulse w-32" />
-        </div>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-6">
+        <div className="w-12 h-12 border-4 border-gold/30 border-t-gold rounded-full animate-spin" />
+        <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">Loading piece&hellip;</p>
       </div>
     );
   }
@@ -166,7 +165,7 @@ function ProductPage() {
 
   // const currentSize = size || product.sizes[1] || product.sizes[0] || "";
   const currentColor = color || product.colors[0] || "";
-  const related = getRelated(product, 4);
+  const related = relatedProducts.filter(p => p.id !== product.id).slice(0, 4);
 
   // Component pricing
   const isComponentProduct = product.has_components && product.components && product.components.length > 0;
