@@ -24,6 +24,7 @@ function AdminLogin() {
         setError("Admin access required.");
         return;
       }
+      localStorage.setItem('ss-last-activity', String(Date.now()));
       navigate({ to: "/admin" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");

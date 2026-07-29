@@ -215,13 +215,13 @@ function ShopPage() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 md:gap-x-6 gap-y-8 md:gap-y-12">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="aspect-[4/5] bg-muted animate-pulse" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 md:gap-x-6 gap-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 md:gap-x-6 gap-y-8 md:gap-y-12">
             {visible.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         )}

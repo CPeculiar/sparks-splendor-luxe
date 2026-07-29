@@ -1,6 +1,6 @@
 ﻿import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
-import { Minus, Plus, Trash2, CheckCircle2, ShieldCheck, Lock, Truck } from "lucide-react";
+import { Minus, Plus, Trash2, CheckCircle2, ShieldCheck, Lock, Truck, MessageCircle } from "lucide-react";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
 import { getAuthToken, getCurrentUser, isAuthenticated } from "@/lib/auth";
@@ -54,7 +54,114 @@ function loadPaystack(): Promise<void> {
   });
 }
 
-const WHATSAPP_PHONE = "2348137037919";
+const WHATSAPP_PHONE = "2349053572403";
+
+type SuccessData = {
+  ref: string;
+  total: number;
+  orderNumber?: string;
+  items?: { product_name: string; quantity: number; unit_price: number; size?: string; color?: string }[];
+  customerName?: string;
+};
+
+function SuccessModal({ success, format, navigate }: { success: SuccessData; format: (n: number) => string; navigate: ReturnType<typeof Route.useNavigate> }) {
+  const [countdown, setCountdown] = useState(10);
+  const [cancelled, setCancelled] = useState(false);
+  const waMsg = encodeURIComponent(
+    `Hello Sparks & Splendour! I just placed order ${success.orderNumber || success.ref}. I'm ready to share my measurements for my bespoke piece.`
+  );
+  const waUrl = `https://wa.me/${WHATSAPP_PHONE}?text=${waMsg}`;
+
+  useEffect(() => {
+    if (cancelled) return;
+    if (countdown <= 0) {
+      window.open(waUrl, "_blank", "noopener,noreferrer");
+      navigate({ to: "/" });
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, cancelled]);
+
+  const handleClose = () => {
+    setCancelled(true);
+    navigate({ to: "/" });
+  };
+
+  const handleWhatsApp = () => {
+    setCancelled(true);
+    window.open(waUrl, "_blank", "noopener,noreferrer");
+    navigate({ to: "/" });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="bg-background border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="p-6 md:p-8 text-center">
+          <div className="w-16 h-16 mx-auto rounded-full bg-gold/15 flex items-center justify-center">
+            <CheckCircle2 className="h-8 w-8 text-gold-deep" />
+          </div>
+          <p className="text-eyebrow mt-5 text-gold">Order Confirmed</p>
+          <h2 className="font-display text-2xl md:text-3xl mt-2">Thank You{success.customerName ? `, ${success.customerName.split(" ")[0]}` : ""}!</h2>
+          <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+            Your payment was successful and your order has been received.
+          </p>
+          <p className="mt-2 text-sm text-gold-deep leading-relaxed font-medium">
+            Since all our wears are bespoke, you will be automatically redirected to WhatsApp in {countdown}s so we can capture your measurements.
+          </p>
+        </div>
+
+        <div className="border-t border-border mx-6">
+          <div className="py-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Order Number</p>
+              <p className="font-mono font-bold mt-0.5">{success.orderNumber || "—"}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Reference</p>
+              <p className="font-mono text-xs mt-0.5 text-muted-foreground">{success.ref}</p>
+            </div>
+          </div>
+        </div>
+
+        {success.items && success.items.length > 0 && (
+          <div className="mx-6 border border-border divide-y divide-border mb-4">
+            {success.items.map((item, i) => (
+              <div key={i} className="flex justify-between items-center px-4 py-3 text-sm">
+                <div>
+                  <p className="font-medium">{item.product_name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Qty: {item.quantity}{item.size ? ` · Size: ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""}
+                  </p>
+                </div>
+                <span className="tabular-nums text-sm font-medium">{format(item.unit_price * item.quantity)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between items-center px-4 py-3">
+              <span className="font-medium text-sm">Total Paid</span>
+              <span className="font-display text-lg tabular-nums text-gold-deep">{format(success.total)}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="p-6 pt-2 flex flex-col gap-3">
+          <button
+            onClick={handleWhatsApp}
+            className="w-full inline-flex items-center justify-center gap-2 bg-[#25D366] text-white py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:opacity-90 transition-opacity"
+          >
+            <MessageCircle className="h-4 w-4" /> Continue to WhatsApp ({countdown}s)
+          </button>
+          <button
+            onClick={handleClose}
+            className="w-full border border-border py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-secondary transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function CartPage() {
   const { items, subtotal, update, remove, count, clear } = useCart();
@@ -397,67 +504,7 @@ function CartPage() {
   };
 
   if (success) {
-    const waMsg = encodeURIComponent(
-      `Hello Sparks & Splendour! I just placed order ${success.orderNumber || success.ref}. I'd like to follow up on my order.`
-    );
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-        <div className="bg-background border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="p-8 text-center">
-            <div className="w-16 h-16 mx-auto rounded-full bg-gold/15 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-gold-deep" />
-            </div>
-            <p className="text-eyebrow mt-6 text-gold">Order Confirmed</p>
-            <h2 className="font-display text-3xl mt-2">Thank You{success.customerName ? `, ${success.customerName.split(" ")[0]}` : ""}!</h2>
-            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-              Your payment was successful and your order has been received. We'll reach out shortly to confirm your order details.
-            </p>
-          </div>
-
-          <div className="border-t border-border mx-6">
-            <div className="py-4 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Order Number</p>
-                <p className="font-mono font-bold mt-0.5">{success.orderNumber || "—"}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground">Reference</p>
-                <p className="font-mono text-xs mt-0.5 text-muted-foreground">{success.ref}</p>
-              </div>
-            </div>
-          </div>
-
-          {success.items && success.items.length > 0 && (
-            <div className="mx-6 border border-border divide-y divide-border mb-4">
-              {success.items.map((item, i) => (
-                <div key={i} className="flex justify-between items-center px-4 py-3 text-sm">
-                  <div>
-                    <p className="font-medium">{item.product_name}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Qty: {item.quantity}{item.size ? ` · Size: ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""}
-                    </p>
-                  </div>
-                  <span className="tabular-nums text-sm font-medium">{format(item.unit_price * item.quantity)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between items-center px-4 py-3">
-                <span className="font-medium text-sm">Total Paid</span>
-                <span className="font-display text-lg tabular-nums text-gold-deep">{format(success.total)}</span>
-              </div>
-            </div>
-          )}
-
-          <div className="p-6 pt-2">
-            <Link
-              to="/"
-              className="w-full inline-flex items-center justify-center bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors"
-            >
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    return <SuccessModal success={success} format={format} navigate={navigate} />;
   }
 
   if (items.length === 0) {
@@ -533,14 +580,36 @@ function CartPage() {
         </div>
       )}
 
-      <section className="container-luxe py-10 md:py-16">
-      <div className="text-center mb-10 md:mb-14">
+      <section className="container-luxe py-8 md:py-16">
+      <div className="text-center mb-8 md:mb-14">
         <p className="text-eyebrow">Checkout</p>
         <h1 className="font-display text-4xl md:text-5xl mt-3">Your Order</h1>
         <p className="text-sm text-muted-foreground mt-2">{count} item{count > 1 ? "s" : ""} · Secure payment via Paystack</p>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr_420px] gap-10 lg:gap-14 items-start">
+      <div className="grid lg:grid-cols-[1fr_400px] gap-8 lg:gap-14 items-start">
+        {/* Order summary first on mobile */}
+        <aside className="lg:hidden border border-border bg-secondary/30 p-4 space-y-3">
+          <h2 className="font-display text-xl">Order Summary</h2>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{format(subtotal)}</span></div>
+            {appliedCoupon && (
+              <div className="flex justify-between text-gold-deep">
+                <span>{appliedCoupon.discount_type === "percentage" ? appliedCoupon.discount_value + "%" : "Fixed"} Discount</span>
+                <span className="tabular-nums">-{format(discountAmount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Shipping</span>
+              <span className="tabular-nums">{shipping === 0 ? <span className="text-gold-deep">Free</span> : format(shipping)}</span>
+            </div>
+          </div>
+          <div className="flex justify-between border-t border-border pt-3 text-base">
+            <span className="font-medium">Total</span>
+            <span className="font-display text-xl tabular-nums">{format(total)}</span>
+          </div>
+        </aside>
+
         <div className="border border-border divide-y divide-border">
           {items.map((item) => (
             <div key={`${item.product.id}-${item.size}-${item.color}`} className="flex gap-4 p-4 md:p-5">
@@ -570,7 +639,7 @@ function CartPage() {
           ))}
         </div>
 
-        <aside className="lg:sticky lg:top-28 space-y-6">
+        <aside className="hidden lg:block lg:sticky lg:top-28 space-y-6">
           <div className="border border-border bg-secondary/30 p-6 space-y-4">
             <h2 className="font-display text-2xl">Order Summary</h2>
             <div className="space-y-2 text-sm">

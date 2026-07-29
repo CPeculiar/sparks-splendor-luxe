@@ -288,22 +288,31 @@ function CategoryGrid() {
             key={c.key}
             to="/shop"
             search={{ category: c.key } as never}
-            className={[
-              "group relative overflow-hidden bg-muted aspect-[3/4]",
-              idx === 0 ? "lg:row-span-2 lg:aspect-[3/4.2]" : "",
-            ].join(" ")}
+            className={["group block bg-muted", idx === 0 ? "lg:row-span-2" : ""].join(" ")}
           >
-            <img
-              src={c.image}
-              alt={c.label}
-              className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-5 md:p-7 text-cream">
-              <p className="text-[10px] text-gold tracking-[0.3em] uppercase">{c.tagline}</p>
-              <h3 className="font-display text-2xl md:text-3xl mt-1.5">{c.label}</h3>
-              <span className="inline-flex items-center gap-2 mt-3 text-xs tracking-[0.25em] uppercase text-cream/90 group-hover:text-gold transition-colors">
-                Shop Now <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+            {/* Image container */}
+            <div className={["relative overflow-hidden", idx === 0 ? "aspect-[3/4] lg:aspect-[3/4.2]" : "aspect-[3/4]"].join(" ")}>
+              <img
+                src={c.image}
+                alt={c.label}
+                className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+              {/* Overlay text — desktop only */}
+              <div className="hidden md:block absolute inset-x-0 bottom-0 p-5 md:p-7 text-cream">
+                <p className="text-[10px] text-gold tracking-[0.3em] uppercase">{c.tagline}</p>
+                <h3 className="font-display text-2xl md:text-3xl mt-1.5">{c.label}</h3>
+                <span className="inline-flex items-center gap-2 mt-3 text-xs tracking-[0.25em] uppercase text-cream/90 group-hover:text-gold transition-colors">
+                  Shop Now <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+                </span>
+              </div>
+            </div>
+            {/* Text below image — mobile only */}
+            <div className="md:hidden px-2 pt-2 pb-3 bg-background">
+              <p className="text-[9px] text-gold-deep tracking-[0.2em] uppercase truncate">{c.tagline}</p>
+              <h3 className="font-display text-sm mt-0.5 leading-tight">{c.label}</h3>
+              <span className="inline-flex items-center gap-1 mt-1 text-[10px] tracking-[0.15em] uppercase text-muted-foreground">
+                Shop <ArrowRight className="h-2.5 w-2.5" />
               </span>
             </div>
           </Link>

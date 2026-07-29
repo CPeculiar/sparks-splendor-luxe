@@ -139,12 +139,26 @@ function ProductPage() {
     }
   };
 
-  // Scroll to top and show loader whenever slug changes
-  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [slug]);
+  const [transitioning, setTransitioning] = useState(false);
+  const [pendingSlug, setPendingSlug] = useState<string | null>(null);
 
-  if (loading) {
+  // When slug changes, immediately show overlay and record which slug we're waiting for
+  useEffect(() => {
+    setTransitioning(true);
+    setPendingSlug(slug);
+  }, [slug]);
+
+  // Only clear overlay once the loaded product actually matches the current slug
+  useEffect(() => {
+    if (!loading && product && product.slug === pendingSlug) {
+      setTransitioning(false);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [loading, product, pendingSlug]);
+
+  if (transitioning || loading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center gap-6">
+      <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center gap-6">
         <div className="w-12 h-12 border-4 border-gold/30 border-t-gold rounded-full animate-spin" />
         <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">Loading piece&hellip;</p>
       </div>
@@ -197,56 +211,54 @@ function ProductPage() {
 
   return (
     <>
-      <div className="container-luxe pt-6 text-xs tracking-[0.18em] uppercase text-muted-foreground flex items-center gap-2">
+      <div className="container-luxe pt-4 md:pt-6 text-xs tracking-[0.18em] uppercase text-muted-foreground flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
         <Link to="/" className="hover:text-foreground">Home</Link> <ChevronRight className="h-3 w-3" />
         <Link to="/shop" className="hover:text-foreground">Shop</Link> <ChevronRight className="h-3 w-3" />
         <Link to="/shop" search={{ category: product.category }} className="hover:text-foreground capitalize">{product.category}</Link>
       </div>
 
-      <div className="container-luxe py-8 md:py-14 grid lg:grid-cols-2 gap-10 lg:gap-16">
+      <div className="container-luxe py-6 md:py-14 grid lg:grid-cols-2 gap-8 lg:gap-16">
         {/* gallery */}
-        <div className="grid grid-cols-[64px_1fr] md:grid-cols-[80px_1fr] gap-3 md:gap-4">
-          <div className="hidden md:flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
+          {/* Main image */}
+          <button onClick={() => setZoom(true)} className="block w-full aspect-[4/5] overflow-hidden bg-muted relative group cursor-zoom-in">
+            <img src={product.gallery[activeImg] || product.image} alt={product.name} className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105" />
+            {product.badge && (
+              <span className="absolute top-4 left-4 bg-onyx text-cream text-[10px] tracking-[0.25em] uppercase px-3 py-1.5">
+                {product.badge}
+              </span>
+            )}
+          </button>
+          {/* Thumbnails — horizontal scroll on mobile, vertical on desktop */}
+          <div className="flex md:hidden gap-2 overflow-x-auto pb-1">
             {product.gallery.map((g, i) => (
               <button
                 key={i}
                 onClick={() => setActiveImg(i)}
-                className={[
-                  "aspect-[4/5] overflow-hidden border-2 transition-all",
-                  activeImg === i ? "border-gold" : "border-transparent hover:border-border",
-                ].join(" ")}
+                className={["flex-shrink-0 w-16 h-20 overflow-hidden border-2 transition-all", activeImg === i ? "border-gold" : "border-transparent"].join(" ")}
               >
                 <img src={g} alt="" className="w-full h-full object-cover object-top" />
               </button>
             ))}
           </div>
-          <div className="md:col-start-2">
-            <button onClick={() => setZoom(true)} className="block w-full aspect-[4/5] overflow-hidden bg-muted relative group cursor-zoom-in">
-              <img src={product.gallery[activeImg] || product.image} alt={product.name} className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105" />
-              {product.badge && (
-                <span className="absolute top-4 left-4 bg-onyx text-cream text-[10px] tracking-[0.25em] uppercase px-3 py-1.5">
-                  {product.badge}
-                </span>
-              )}
-            </button>
-            <div className="flex md:hidden gap-2 mt-3">
-              {product.gallery.map((g, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveImg(i)}
-                  className={["flex-1 aspect-[4/5] overflow-hidden border-2", activeImg === i ? "border-gold" : "border-transparent"].join(" ")}
-                >
-                  <img src={g} alt="" className="w-full h-full object-cover object-top" />
-                </button>
-              ))}
-            </div>
+          {/* Desktop: side thumbnails */}
+          <div className="hidden md:flex gap-3">
+            {product.gallery.map((g, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveImg(i)}
+                className={["w-20 aspect-[4/5] overflow-hidden border-2 transition-all flex-shrink-0", activeImg === i ? "border-gold" : "border-transparent hover:border-border"].join(" ")}
+              >
+                <img src={g} alt="" className="w-full h-full object-cover object-top" />
+              </button>
+            ))}
           </div>
         </div>
 
         {/* details */}
         <div className="lg:py-4 lg:sticky lg:top-28 self-start">
           <p className="text-eyebrow">{product.category}</p>
-          <h1 className="font-display text-4xl md:text-5xl mt-3 leading-tight">{product.name}</h1>
+          <h1 className="font-display text-3xl md:text-5xl mt-3 leading-tight">{product.name}</h1>
           <div className="flex items-center gap-2 mt-3">
             <div className="flex text-gold">
               {Array.from({ length: 5 }).map((_, i) => <Star key={i} className="h-3.5 w-3.5 fill-current" />)}
@@ -367,11 +379,11 @@ function ProductPage() {
           )}
           */}
 
-          <div className="mt-6 flex items-stretch gap-3">
+          <div className="mt-6 flex items-stretch gap-2 md:gap-3">
             <div className="flex items-center border border-border">
-              <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 h-12 hover:bg-muted" aria-label="Decrease"><Minus className="h-4 w-4" /></button>
-              <span className="px-4 text-sm tabular-nums w-10 text-center">{qty}</span>
-              <button onClick={() => setQty(qty + 1)} className="px-3 h-12 hover:bg-muted" aria-label="Increase"><Plus className="h-4 w-4" /></button>
+              <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-2.5 md:px-3 h-12 hover:bg-muted" aria-label="Decrease"><Minus className="h-4 w-4" /></button>
+              <span className="px-3 md:px-4 text-sm tabular-nums w-8 md:w-10 text-center">{qty}</span>
+              <button onClick={() => setQty(qty + 1)} className="px-2.5 md:px-3 h-12 hover:bg-muted" aria-label="Increase"><Plus className="h-4 w-4" /></button>
             </div>
             <button
               onClick={() => add(product, {

@@ -46,18 +46,18 @@ export function ProductCard({ product, priority = false }: { product: Product; p
         )}
         <button
           onClick={(e) => { e.preventDefault(); add(product); }}
-          className="absolute bottom-3 right-3 w-11 h-11 rounded-full bg-cream/95 text-onyx flex items-center justify-center opacity-0 translate-y-3 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 hover:bg-gold"
+          className="absolute bottom-3 right-3 w-10 h-10 md:w-11 md:h-11 rounded-full bg-cream/95 text-onyx flex items-center justify-center md:opacity-0 md:translate-y-3 md:group-hover:opacity-100 md:group-hover:translate-y-0 transition-all duration-500 hover:bg-gold shadow-md"
           aria-label="Add to bag"
         >
           <ShoppingBag className="h-4 w-4" />
         </button>
       </Link>
-      <div className="pt-4 flex flex-col items-start text-left">
+      <div className="pt-3 md:pt-4 flex flex-col items-start text-left">
         <p className="text-[10px] text-gold-deep tracking-[0.3em] uppercase">{product.category}</p>
         <Link
           to="/product/$slug"
           params={{ slug: product.slug }}
-          className="font-display text-lg md:text-xl mt-1 leading-tight hover:text-gold-deep transition-colors"
+          className="font-display text-base md:text-xl mt-1 leading-tight hover:text-gold-deep transition-colors line-clamp-2"
         >
           {product.name}
         </Link>

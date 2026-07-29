@@ -231,7 +231,7 @@ export function Header() {
 
       <header
         className={[
-          "sticky top-0 z-40 w-full transition-all duration-500",
+          "fixed md:sticky top-0 z-40 w-full transition-all duration-500",
           transparent
             ? "bg-onyx/80 backdrop-blur-sm"
             : "bg-background/95 backdrop-blur-xl border-b border-border/60",

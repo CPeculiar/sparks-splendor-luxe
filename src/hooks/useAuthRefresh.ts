@@ -13,11 +13,15 @@ export function useAuthRefresh(onIdleWarning?: (secondsLeft: number) => void, on
   // Track last activity time in localStorage so a fresh login always resets the clock
   const LAST_ACTIVITY_KEY = 'ss-last-activity';
 
-  const resetIdleTimer = useCallback(() => {
-    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+  const clearAllTimers = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+  }, []);
+
+  const resetIdleTimer = useCallback(() => {
+    localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+    clearAllTimers();
 
     warningTimeoutRef.current = setTimeout(() => {
       let secondsLeft = 60;
@@ -33,9 +37,15 @@ export function useAuthRefresh(onIdleWarning?: (secondsLeft: number) => void, on
     timeoutRef.current = setTimeout(() => {
       onLogout?.();
     }, IDLE_TIMEOUT);
-  }, [onIdleWarning, onLogout]);
+  }, [onIdleWarning, onLogout, clearAllTimers]);
 
   useEffect(() => {
+    // If callbacks are undefined (e.g. login page), just clear any stale timers and bail
+    if (!onIdleWarning && !onLogout) {
+      clearAllTimers();
+      return;
+    }
+
     // Always reset the clock on mount — covers fresh logins
     localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
@@ -50,10 +60,8 @@ export function useAuthRefresh(onIdleWarning?: (secondsLeft: number) => void, on
 
     return () => {
       events.forEach((e) => document.removeEventListener(e, handleActivity));
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
-      if (warningIntervalRef.current) clearInterval(warningIntervalRef.current);
+      clearAllTimers();
       if (proactiveRefreshRef.current) clearInterval(proactiveRefreshRef.current);
     };
-  }, [resetIdleTimer]);
+  }, [onIdleWarning, onLogout, resetIdleTimer, clearAllTimers]);
 }

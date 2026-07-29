@@ -61,12 +61,21 @@ function RootComponent() {
   // Hook must always be called — guard inside the hook callbacks instead
   useAuthRefresh(handleIdleWarning, handleForceLogout);
 
+  const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
+
   return (
     <CurrencyProvider>
       <CartProvider>
+        {/* Full-page navigation loader */}
+        {isNavigating && (
+          <div className="fixed inset-0 z-[9999] bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4 pointer-events-none">
+            <div className="w-10 h-10 border-4 border-gold/30 border-t-gold rounded-full animate-spin" />
+            <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">Loading&hellip;</p>
+          </div>
+        )}
         <div className="min-h-screen flex flex-col">
           {!isAdminRoute && <Header />}
-          <main className="flex-1">
+          <main className={`flex-1${!isAdminRoute ? " pt-16 md:pt-0" : ""}` }>
             <Outlet />
           </main>
           {!isAdminRoute && <Footer />}

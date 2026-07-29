@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, Link, useRouterState, useNavigate, redirect } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
-import { LayoutDashboard, Package, ShoppingBag, Receipt, Users, LogOut, ShieldCheck, Sparkles, Tags, Image, Sliders, BarChart3, FileText, Bell, BookOpen, Database, Settings, Mail, MessageSquare, Star, Loader2 } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Receipt, Users, LogOut, ShieldCheck, Sparkles, Tags, Image, Sliders, BarChart3, FileText, Bell, BookOpen, Database, Settings, Mail, MessageSquare, Star, Loader2, X } from "lucide-react";
 import { getCurrentUser, isAuthenticated, logout } from "@/lib/auth";
 import { useAuthRefresh } from "@/hooks/useAuthRefresh";
 import { IdleWarningModal } from "@/components/IdleWarningModal";
@@ -89,10 +89,19 @@ function AdminLayout() {
     pathname !== "/admin/login" ? handleIdleLogout : undefined,
   );
 
+  // Close idle modal whenever we land on a non-login admin page (e.g. after fresh login)
+  const prevPathRef = useState("/admin/login");
+  if (prevPathRef[0] === "/admin/login" && pathname !== "/admin/login") {
+    prevPathRef[1](pathname);
+    setIdleOpen(false);
+  } else if (prevPathRef[0] !== pathname) {
+    prevPathRef[1](pathname);
+  }
+
   if (pathname === "/admin/login") return <Outlet />;
 
   return (
-    <div className="min-h-screen bg-secondary/20 flex flex-row">
+    <div className="bg-secondary/20 flex flex-row" style={{ minHeight: "100dvh" }}>
       <IdleWarningModal
         open={idleOpen}
         secondsLeft={idleSeconds}
@@ -100,79 +109,124 @@ function AdminLayout() {
         onLogout={handleIdleLogout}
       />
       {/* Mobile sidebar toggle */}
-      <div className="md:hidden fixed top-16 left-4 z-40 bg-onyx text-cream p-2 rounded">
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1 hover:text-gold">
+      <div className="md:hidden fixed top-4 left-4 z-40">
+        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="bg-onyx text-cream p-2.5 rounded shadow-lg hover:bg-onyx/80" aria-label="Open sidebar">
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
       </div>
 
-      {/* Sidebar */}
-      <aside className={`
-        w-72 bg-onyx text-cream flex flex-col fixed md:sticky top-0 left-0 h-screen
-        z-30 md:z-0
-        transition-transform duration-300
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-      `}>
-        <div className="p-5 border-b border-cream/10 sticky top-0 bg-onyx">
-          <div className="flex items-center gap-2">
-            {user?.role === "super_admin" && <ShieldCheck className="h-4 w-4 text-gold" />}
-            <p className="text-eyebrow text-gold capitalize">{user?.role?.replace("_", " ") || "Admin"}</p>
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <aside className="md:hidden fixed top-0 left-0 w-[280px] bg-onyx text-cream flex flex-col z-30" style={{ height: "100dvh" }}>
+          <div className="p-5 border-b border-cream/10 bg-onyx flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                {user?.role === "super_admin" && <ShieldCheck className="h-4 w-4 text-gold" />}
+                <p className="text-eyebrow text-gold capitalize">{user?.role?.replace("_", " ") || "Admin"}</p>
+              </div>
+              <h2 className="font-display text-xl mt-1">Sparks &amp; Splendour</h2>
+              <p className="text-xs text-cream/50 mt-1 truncate">{user?.email}</p>
+            </div>
+            <button onClick={() => setSidebarOpen(false)} className="p-1 text-cream/60 hover:text-gold mt-1" aria-label="Close sidebar">
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <h2 className="font-display text-xl mt-1">Sparks &amp; Splendour</h2>
-          <p className="text-xs text-cream/50 mt-1 truncate">{user?.email}</p>
-        </div>
-
-        <nav className="flex flex-col flex-1 overflow-y-auto">
-          {NAV.map((n, i) => {
-            if ("type" in n && n.type === "section") {
+          <nav className="flex flex-col flex-1 overflow-y-auto">
+            {NAV.map((n, i) => {
+              if ("type" in n && n.type === "section") {
+                return (
+                  <div key={i} className="px-5 pt-4 pb-2 text-[10px] tracking-[0.2em] uppercase text-cream/40 font-semibold mt-2 border-t border-cream/10">
+                    {n.label}
+                  </div>
+                );
+              }
+              const isNavItem = "to" in n;
+              if (!isNavItem) return null;
+              const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
               return (
-                <div key={i} className="px-5 pt-4 pb-2 text-[10px] tracking-[0.2em] uppercase text-cream/40 font-semibold mt-2 border-t border-cream/10">
-                  {n.label}
-                </div>
+                <Link key={n.to} to={n.to} onClick={() => setSidebarOpen(false)}
+                  className={["flex items-center gap-3 px-5 py-3 text-sm tracking-wide border-l-2 transition-colors",
+                    active ? "border-gold bg-cream/5 text-gold" : "border-transparent text-cream/70 hover:text-cream hover:bg-cream/5"].join(" ")}
+                >
+                  <n.icon className="h-4 w-4 flex-shrink-0" />
+                  <span>{n.label}</span>
+                </Link>
               );
-            }
-            const isNavItem = "to" in n;
-            if (!isNavItem) return null;
-            const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
-            return (
-              <Link
-                key={n.to}
-                to={n.to}
-                onClick={() => setSidebarOpen(false)}
-                className={[
-                  "flex items-center gap-3 px-5 py-3 text-sm tracking-wide border-l-2 transition-colors",
-                  active ? "border-gold bg-cream/5 text-gold" : "border-transparent text-cream/70 hover:text-cream hover:bg-cream/5",
-                ].join(" ")}
-              >
-                <n.icon className="h-4 w-4 flex-shrink-0" />
-                <span>{n.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+            })}
+          </nav>
+          <div className="p-4 border-t border-cream/10 bg-onyx">
+            <button onClick={() => { logout(); navigate({ to: "/admin/login" }); }}
+              className="flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-cream/70 hover:text-gold w-full">
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
+          </div>
+        </aside>
+      )}
 
-        <div className="p-4 border-t border-cream/10 sticky bottom-0 bg-onyx">
-          <button
-            onClick={() => { logout(); navigate({ to: "/admin/login" }); }}
-            className="flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-cream/70 hover:text-gold w-full"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
-          </button>
-        </div>
-      </aside>
+      {/* Desktop sidebar — column stretches full page height, inner aside sticks to viewport */}
+      <div className="hidden md:block w-64 lg:w-72 bg-onyx flex-shrink-0">
+        <aside className="sticky top-0 h-screen flex flex-col text-cream" style={{ overflowY: "auto" }}>
+          <div className="p-5 border-b border-cream/10">
+            <div className="flex items-center gap-2">
+              {user?.role === "super_admin" && <ShieldCheck className="h-4 w-4 text-gold" />}
+              <p className="text-eyebrow text-gold capitalize">{user?.role?.replace("_", " ") || "Admin"}</p>
+            </div>
+            <h2 className="font-display text-xl mt-1">Sparks &amp; Splendour</h2>
+            <p className="text-xs text-cream/50 mt-1 truncate">{user?.email}</p>
+          </div>
+
+          <nav className="flex flex-col flex-1 overflow-y-auto">
+            {NAV.map((n, i) => {
+              if ("type" in n && n.type === "section") {
+                return (
+                  <div key={i} className="px-5 pt-4 pb-2 text-[10px] tracking-[0.2em] uppercase text-cream/40 font-semibold mt-2 border-t border-cream/10">
+                    {n.label}
+                  </div>
+                );
+              }
+              const isNavItem = "to" in n;
+              if (!isNavItem) return null;
+              const active = n.exact ? pathname === n.to : pathname.startsWith(n.to);
+              return (
+                <Link
+                  key={n.to}
+                  to={n.to}
+                  onClick={() => setSidebarOpen(false)}
+                  className={[
+                    "flex items-center gap-3 px-5 py-3 text-sm tracking-wide border-l-2 transition-colors",
+                    active ? "border-gold bg-cream/5 text-gold" : "border-transparent text-cream/70 hover:text-cream hover:bg-cream/5",
+                  ].join(" ")}
+                >
+                  <n.icon className="h-4 w-4 flex-shrink-0" />
+                  <span>{n.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="p-4 border-t border-cream/10">
+            <button
+              onClick={() => { logout(); navigate({ to: "/admin/login" }); }}
+              className="flex items-center gap-2 text-xs tracking-[0.2em] uppercase text-cream/70 hover:text-gold w-full"
+            >
+              <LogOut className="h-3.5 w-3.5" /> Sign out
+            </button>
+          </div>
+        </aside>
+      </div>
 
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-onyx/60 z-20 top-16"
+          className="md:hidden fixed inset-0 bg-onyx/60 z-20"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Main content */}
-      <main className="flex-1 p-4 md:p-8 overflow-auto md:ml-0">
+      <main className="flex-1 min-w-0 p-4 md:p-6 lg:p-8 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-gold" />
