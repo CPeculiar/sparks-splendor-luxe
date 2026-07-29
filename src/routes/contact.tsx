@@ -57,7 +57,7 @@ function ContactPage() {
       <section className="container-luxe py-16 md:py-24 grid lg:grid-cols-2 gap-12 lg:gap-20">
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
           <p className="text-eyebrow">Write to Us</p>
-          <h2 className="font-display text-3xl md:text-4xl leading-tight">Tell us about your vision.</h2>
+          <h2 className="font-display text-3xl md:text-4xl leading-tight">Let's Create Something Exceptional.</h2>
 
           <div className="grid sm:grid-cols-2 gap-4 mt-6">
             <Field label="First Name" name="first_name" />
@@ -108,9 +108,9 @@ function ContactPage() {
 
           <div className="grid sm:grid-cols-2 gap-4">
             <Info I={MapPin} t="Office"    l={["2b Baale Street, Lafiaji Off Buena Estate", "Orchid Road, Lekki, Lagos, Nigeria"]} />
-            <Info I={Clock}  t="Hours"     l={["Mon — Sat: 10am — 7pm", "Sundays by appointment"]} />
-            <Info I={Phone}  t="Telephone" l={["+234 905 357 2403"]} />
-            <Info I={Mail}   t="Email"     l={["sparksandsplendour@gmail.com"]} />
+          <Info I={Clock}  t="Hours"     l={["Mon — Sat: 10am — 7pm", "Sundays by appointment"]} />
+            <Info I={Phone}  t="Telephone" l={[{ text: "+234 905 357 2403", href: "tel:+2349053572403" }]} />
+            <Info I={Mail}   t="Email"     l={[{ text: "sparksandsplendour@gmail.com", href: "mailto:sparksandsplendour@gmail.com" }]} />
           </div>
 
           <a
@@ -178,12 +178,18 @@ function Field({ label, name, type = "text", required = true }: { label: string;
   );
 }
 
-function Info({ I, t, l }: { I: React.ComponentType<{ className?: string }>; t: string; l: string[] }) {
+function Info({ I, t, l }: { I: React.ComponentType<{ className?: string }>; t: string; l: (string | { text: string; href: string })[] }) {
   return (
     <div className="border border-border p-5">
       <I className="h-5 w-5 text-gold" />
       <p className="text-eyebrow mt-3">{t}</p>
-      {l.map((x, i) => <p key={i} className="text-sm mt-1">{x}</p>)}
+      {l.map((x, i) =>
+        typeof x === "string" ? (
+          <p key={i} className="text-sm mt-1">{x}</p>
+        ) : (
+          <a key={i} href={x.href} className="text-sm mt-1 block hover:text-gold transition-colors">{x.text}</a>
+        )
+      )}
     </div>
   );
 }

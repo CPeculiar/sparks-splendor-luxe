@@ -231,7 +231,7 @@ export function Header() {
 
       <header
         className={[
-          "fixed md:sticky top-0 z-40 w-full transition-all duration-500",
+          "fixed top-0 z-40 w-full transition-all duration-500",
           transparent
             ? "bg-onyx/80 backdrop-blur-sm"
             : "bg-background/95 backdrop-blur-xl border-b border-border/60",
@@ -249,7 +249,7 @@ export function Header() {
           </button>
 
           {/* ── Desktop: left nav ── */}
-          <nav className="hidden xl:flex items-center gap-3 text-[10px] tracking-[0.15em] uppercase font-medium shrink-0" style={{ marginRight: '1.5rem' }}>
+          <nav className="hidden xl:flex items-center gap-5 text-[10px] tracking-[0.15em] uppercase font-medium" style={{ minWidth: 0, flex: '1 1 0' }}>
             {loadingCategories ? (
               <span className={`text-xs ${textCls}`}>Loading...</span>
             ) : navLeft.length > 0 ? (
@@ -270,7 +270,7 @@ export function Header() {
           </Link>
 
           {/* ── Desktop: right nav + icons ── */}
-          <div className="hidden xl:flex items-center gap-3 text-[10px] tracking-[0.15em] uppercase font-medium justify-end shrink-0" style={{ marginLeft: '1.5rem' }}>
+          <div className="hidden xl:flex items-center gap-5 text-[10px] tracking-[0.15em] uppercase font-medium justify-end" style={{ minWidth: 0, flex: '1 1 0' }}>
             {!loadingCategories && navRight.length > 0 && navRight.map((n) => <NavLink key={n.id} item={n} />)}
 
             {/* divider */}

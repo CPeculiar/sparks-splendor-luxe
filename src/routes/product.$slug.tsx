@@ -415,9 +415,9 @@ function ProductPage() {
             </button>
           </div>
 
-          <Link to="/contact" className="block w-full text-center border border-onyx h-12 leading-[3rem] mt-3 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors">
+          {/* <Link to="/contact" className="block w-full text-center border border-onyx h-12 leading-[3rem] mt-3 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors">
             Book Bespoke Consultation
-          </Link>
+          </Link> */}
 
           <div className="mt-8 grid grid-cols-3 gap-4 text-center border-t border-border pt-6">
             {[

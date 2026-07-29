@@ -9,9 +9,8 @@ export const Route = createFileRoute("/cart")({
   component: CartPage,
 });
 
-const PAYSTACK_KEY =
-  (import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined) ||
-  "pk_test_3e9dfebb9d05ad47e9588e382ba8a090ba5176df";
+const PAYSTACK_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY as string | undefined;
+if (!PAYSTACK_KEY) console.error("VITE_PAYSTACK_PUBLIC_KEY is not set");
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
@@ -65,7 +64,7 @@ type SuccessData = {
 };
 
 function SuccessModal({ success, format, navigate }: { success: SuccessData; format: (n: number) => string; navigate: ReturnType<typeof Route.useNavigate> }) {
-  const [countdown, setCountdown] = useState(10);
+  const [countdown, setCountdown] = useState(30);
   const [cancelled, setCancelled] = useState(false);
   const waMsg = encodeURIComponent(
     `Hello Sparks & Splendour! I just placed order ${success.orderNumber || success.ref}. I'm ready to share my measurements for my bespoke piece.`
@@ -83,13 +82,14 @@ function SuccessModal({ success, format, navigate }: { success: SuccessData; for
     return () => clearTimeout(t);
   }, [countdown, cancelled]);
 
+  // Only the explicit Close button aborts the redirect
   const handleClose = () => {
     setCancelled(true);
     navigate({ to: "/" });
   };
 
   const handleWhatsApp = () => {
-    setCancelled(true);
+    // Don't cancel — just open WhatsApp immediately and let countdown continue
     window.open(waUrl, "_blank", "noopener,noreferrer");
     navigate({ to: "/" });
   };

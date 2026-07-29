@@ -50,7 +50,7 @@ function AdminDashboard() {
             <table className="w-full text-sm">
               <thead className="bg-secondary/50 text-left">
                 <tr>
-                  {["Order #", "Email", "Total", "Status", "Date"].map((h) => (
+                  {["Order #", "Email", "Total", "Payment Status", "Date"].map((h) => (
                     <th key={h} className="p-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -64,7 +64,7 @@ function AdminDashboard() {
                     <td className="p-3 font-mono text-xs">{o.order_number}</td>
                     <td className="p-3 text-xs truncate max-w-[140px]">{o.email}</td>
                     <td className="p-3 tabular-nums text-xs">{fmt(Number(o.total))}</td>
-                    <td className="p-3"><StatusPill status={o.order_status} /></td>
+                    <td className="p-3"><StatusPill status={o.payment_status} /></td>
                     <td className="p-3 text-muted-foreground text-xs">{new Date(o.created_at).toLocaleDateString()}</td>
                   </tr>
                 ))}

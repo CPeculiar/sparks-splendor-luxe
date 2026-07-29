@@ -1,8 +1,39 @@
 import { Link } from "@tanstack/react-router";
 import { Instagram, Facebook, Mail, MapPin, Phone } from "lucide-react";
+import { useState } from "react";
 import logo from "@/assets/logo-mark.png";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 export function Footer () {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  async function handleSubscribe(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setStatus("loading");
+    setErrMsg("");
+    try {
+      const res = await fetch(`${API_BASE}/api/newsletter/subscribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), name: name.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.error || "Failed to subscribe");
+      }
+      setStatus("success");
+      setEmail("");
+      setName("");
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : "Failed to subscribe");
+      setStatus("error");
+    }
+  }
   return (
     <footer className="bg-onyx text-cream mt-24">
       {/* Newsletter */}
@@ -17,23 +48,37 @@ export function Footer () {
               Receive private invitations, clothing previews and editorial dispatches from the House.
             </p>
           </div>
-          <form
-            className="flex flex-col sm:flex-row gap-2"
-            onSubmit={(e) => { e.preventDefault(); alert("Thank you — you're on the list."); }}
-          >
-            <input
-              type="email"
-              required
-              placeholder="Your email address"
-              className="flex-1 bg-transparent border border-cream/20 px-4 py-3 text-sm placeholder:text-cream/40 outline-none focus:border-gold transition-colors min-w-0"
-            />
-            <button
-              type="submit"
-              className="bg-gold text-onyx px-6 py-3 text-xs tracking-[0.25em] uppercase font-semibold hover:bg-gold-soft transition-colors whitespace-nowrap shrink-0"
-            >
-              Subscribe
-            </button>
-          </form>
+          {status === "success" ? (
+            <p className="text-gold text-sm font-medium">✓ You're on the list. Welcome to the Society.</p>
+          ) : (
+            <form onSubmit={handleSubscribe} className="flex flex-col gap-2">
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name (optional)"
+                className="bg-transparent border border-cream/20 px-4 py-3 text-sm placeholder:text-cream/40 outline-none focus:border-gold transition-colors"
+              />
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Your email address"
+                  className="flex-1 bg-transparent border border-cream/20 px-4 py-3 text-sm placeholder:text-cream/40 outline-none focus:border-gold transition-colors min-w-0"
+                />
+                <button
+                  type="submit"
+                  disabled={status === "loading"}
+                  className="bg-gold text-onyx px-6 py-3 text-xs tracking-[0.25em] uppercase font-semibold hover:bg-gold-soft transition-colors whitespace-nowrap shrink-0 disabled:opacity-60"
+                >
+                  {status === "loading" ? "…" : "Subscribe"}
+                </button>
+              </div>
+              {status === "error" && <p className="text-xs text-destructive">{errMsg}</p>}
+            </form>
+          )}
         </div>
       </div>
 
@@ -95,8 +140,12 @@ export function Footer () {
           <ul className="space-y-3 text-sm text-cream/70">
             <li className="flex gap-2 items-start"><MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" /> 2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
               Lekki, Lagos State, Nigeria</li>
-            <li className="flex gap-2 items-start"><Phone className="h-4 w-4 text-gold shrink-0 mt-0.5" /> +234 905 357 2403</li>
-            <li className="flex gap-2 items-start"><Mail className="h-4 w-4 text-gold shrink-0 mt-0.5" /> support@sparksandsplendour.com</li>
+            <li className="flex gap-2 items-start"><Phone className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+              <a href="tel:+2349053572403" className="hover:text-gold transition-colors">+234 905 357 2403</a>
+            </li>
+            <li className="flex gap-2 items-start"><Mail className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+              <a href="mailto:support@sparksandsplendour.com" className="hover:text-gold transition-colors">support@sparksandsplendour.com</a>
+            </li>
           </ul>
         </div>
       </div>

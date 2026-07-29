@@ -162,7 +162,7 @@ function LaunchForm({
         className="ml-auto relative h-full w-full sm:w-[640px] bg-background overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-background z-10">
           <h2 className="font-display text-2xl">{p.id ? "Edit Launch" : "New Launch"}</h2>
           <button onClick={onCancel} aria-label="Close"><X className="h-5 w-5" /></button>
         </div>

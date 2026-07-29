@@ -273,21 +273,6 @@ function ShopPage() {
                 </div>
               </div>
               <div>
-                <h4 className="text-eyebrow mb-4">Size</h4>
-                <div className="flex flex-wrap gap-2">
-                  {["S","M","L","XL","XXL"].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => navigate({ search: { ...search, size: search.size === s ? undefined : s } })}
-                      className={[
-                        "h-10 w-12 border text-sm transition-colors",
-                        search.size === s ? "bg-onyx text-cream border-onyx" : "border-border hover:border-gold",
-                      ].join(" ")}
-                    >{s}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
                 <h4 className="text-eyebrow mb-4">Max Price</h4>
                 <input
                   type="range"

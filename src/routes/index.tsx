@@ -254,10 +254,10 @@ const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
 };
 
 const COLLECTION_CATS_FALLBACK = [
-  { key: "suits",   label: "Suits",   tagline: "Expedition Tailoring",  image: CATEGORY_FALLBACK_IMAGES.suits },
-  { key: "natives", label: "Natives", tagline: "Heritage Reimagined",   image: CATEGORY_FALLBACK_IMAGES.natives },
-  { key: "casuals", label: "Casuals", tagline: "Quiet Luxury",          image: CATEGORY_FALLBACK_IMAGES.casuals },
-  { key: "ladies",  label: "Ladies",  tagline: "Couture for Her",       image: CATEGORY_FALLBACK_IMAGES.ladies },
+  { key: "suits",   label: "Suits",   tagline: "Sculpted Tailoring",    subtitle: "Bespoke suits & blazers",      image: CATEGORY_FALLBACK_IMAGES.suits },
+  { key: "natives", label: "Natives", tagline: "Heritage Reimagined",   subtitle: "Agbada, kaftans & more",       image: CATEGORY_FALLBACK_IMAGES.natives },
+  { key: "casuals", label: "Casuals", tagline: "Quiet Luxury",          subtitle: "Everyday elevated essentials", image: CATEGORY_FALLBACK_IMAGES.casuals },
+  { key: "ladies",  label: "Ladies",  tagline: "Couture for Her",       subtitle: "Aso-ebi & couture pieces",     image: CATEGORY_FALLBACK_IMAGES.ladies },
 ];
 
 function CategoryGrid() {
@@ -266,12 +266,16 @@ function CategoryGrid() {
     ? categories
         .filter((c) => Boolean(c.slug))
         .slice(0, 4)
-        .map((c) => ({
-          key: c.slug,
-          label: c.name,
-          tagline: c.tagline || c.description || "Bespoke craft.",
-          image: c.image_url || CATEGORY_FALLBACK_IMAGES[c.slug] || "/gallery-compressed/safari_suits/safari-cover-image-main.jpg",
-        }))
+        .map((c) => {
+          const fallback = COLLECTION_CATS_FALLBACK.find((f) => f.key === c.slug);
+          return {
+            key: c.slug,
+            label: c.name,
+            tagline: c.tagline || fallback?.tagline || "Bespoke craft.",
+            subtitle: c.description || fallback?.subtitle || "",
+            image: c.image_url || CATEGORY_FALLBACK_IMAGES[c.slug] || "/gallery-compressed/safari_suits/safari-cover-image-main.jpg",
+          };
+        })
     : COLLECTION_CATS_FALLBACK;
 
   return (
@@ -290,30 +294,27 @@ function CategoryGrid() {
             search={{ category: c.key } as never}
             className={["group block bg-muted", idx === 0 ? "lg:row-span-2" : ""].join(" ")}
           >
-            {/* Image container */}
+            {/* Image */}
             <div className={["relative overflow-hidden", idx === 0 ? "aspect-[3/4] lg:aspect-[3/4.2]" : "aspect-[3/4]"].join(" ")}>
               <img
                 src={c.image}
                 alt={c.label}
                 className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-[1400ms] group-hover:scale-110"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-              {/* Overlay text — desktop only */}
-              <div className="hidden md:block absolute inset-x-0 bottom-0 p-5 md:p-7 text-cream">
-                <p className="text-[10px] text-gold tracking-[0.3em] uppercase">{c.tagline}</p>
-                <h3 className="font-display text-2xl md:text-3xl mt-1.5">{c.label}</h3>
-                <span className="inline-flex items-center gap-2 mt-3 text-xs tracking-[0.25em] uppercase text-cream/90 group-hover:text-gold transition-colors">
-                  Shop Now <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+              {/* Category name + Shop CTA on image — all screen sizes */}
+              <div className="absolute inset-x-0 bottom-0 p-3 md:p-5 text-cream">
+                <h3 className="font-display text-lg md:text-2xl lg:text-3xl leading-tight drop-shadow-[0_1px_6px_rgba(0,0,0,0.9)]">{c.label}</h3>
+                <span className="inline-flex items-center gap-1 mt-1 text-[11px] md:text-xs tracking-[0.2em] uppercase font-semibold text-cream drop-shadow-[0_1px_4px_rgba(0,0,0,0.9)] group-hover:text-gold transition-colors">
+                  Shop <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5 transition-transform group-hover:translate-x-1" />
                 </span>
               </div>
             </div>
-            {/* Text below image — mobile only */}
-            <div className="md:hidden px-2 pt-2 pb-3 bg-background">
-              <p className="text-[9px] text-gold-deep tracking-[0.2em] uppercase truncate">{c.tagline}</p>
-              <h3 className="font-display text-sm mt-0.5 leading-tight">{c.label}</h3>
-              <span className="inline-flex items-center gap-1 mt-1 text-[10px] tracking-[0.15em] uppercase text-muted-foreground">
-                Shop <ArrowRight className="h-2.5 w-2.5" />
-              </span>
+            {/* Subtitle below image */}
+            <div className="px-1 pt-2 pb-3 bg-background">
+              {c.subtitle && (
+                <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground leading-snug mt-0.5">{c.subtitle}</p>
+              )}
             </div>
           </Link>
         ))}

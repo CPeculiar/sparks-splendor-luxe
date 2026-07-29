@@ -348,6 +348,20 @@ export const deleteSubscriber = async (id: string) => {
   await call("DELETE", `/api/admin/newsletter/subscribers/${id}`);
 };
 
+export const updateSubscriber = async (id: string, payload: { name?: string; email?: string }) => {
+  await call("PUT", `/api/admin/newsletter/subscribers/${id}`, payload);
+};
+
+// ── Blocked logins
+export const fetchBlockedLogins = async () => {
+  const r = await call<{ data: { key: string; ip: string; blockedUntil: number }[] }>("GET", "/api/admin/blocked-logins");
+  return r.data;
+};
+
+export const unblockLogin = async (key: string) => {
+  await call("DELETE", `/api/admin/blocked-logins/${encodeURIComponent(key)}`);
+};
+
 // ── Categories (admin) ───────────────────────────────────────────────────────
 export interface AdminCategory {
   id: string;
