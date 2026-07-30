@@ -61,7 +61,7 @@ function ReturnsPolicyPage() {
                   support@sparksandsplendour.com
                 </a>{" "}
                 or via WhatsApp at{" "}
-                <a href="https://wa.me/2349053572403" className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">
+                <a href={`https://wa.me/${import.meta.env.VITE_WHATSAPP_NUMBER}`} className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">
                   +234 905 357 2403
                 </a>.
               </li>

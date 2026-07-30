@@ -33,8 +33,8 @@ export interface Product {
   description: string;
   fabric: string;
   badge?: "New" | "Bestseller" | "Limited";
-  has_components?: boolean;
-  components?: ProductComponent[];
+  has_components: boolean;
+  components: ProductComponent[];
 }
 
 // ── path helpers ──────────────────────────────────────────────────────────────
@@ -49,9 +49,12 @@ const pants    = (f: string) => GC("pants", f);
 
 const SIZES = ["S", "M", "L", "XL", "XXL"];
 
+const DEFAULTS = { display_price: 0, display_currency: "NGN" as const, currency_symbol: "₦", has_components: false, components: [] };
+
 export const products: Product[] = [
   // ───── SUITS ─────
   {
+    ...DEFAULTS,
     id: "p-001", slug: "the-monarch-fit-mint",
     name: "The Monarch Fit — Mint Green",
     category: "suits", price: 685000, currency: "₦",
@@ -69,6 +72,7 @@ export const products: Product[] = [
     badge: "Bestseller",
   },
   {
+    ...DEFAULTS,
     id: "p-002", slug: "the-monarch-fit-pink",
     name: "The Monarch Fit — Light Pink",
     category: "suits", price: 685000, currency: "₦",
@@ -87,6 +91,7 @@ export const products: Product[] = [
     badge: "New",
   },
   {
+    ...DEFAULTS,
     id: "p-003", slug: "the-sovereign-fit-teal",
     name: "The Sovereign Fit — Bold Teal",
     category: "suits", price: 595000, currency: "₦",
@@ -103,6 +108,7 @@ export const products: Product[] = [
     fabric: "Worsted wool",
   },
   {
+    ...DEFAULTS,
     id: "p-004", slug: "the-alpha-code-burgundy",
     name: "The AlphaCode — Burgundy",
     category: "suits", price: 720000, currency: "₦",
@@ -120,6 +126,7 @@ export const products: Product[] = [
     badge: "Limited",
   },
   {
+    ...DEFAULTS,
     id: "p-005", slug: "the-power-set-green",
     name: "The Power Set — Green",
     category: "suits", price: 510000, currency: "₦",
@@ -137,6 +144,7 @@ export const products: Product[] = [
     fabric: "Wool/Cashmere blend",
   },
   {
+    ...DEFAULTS,
     id: "p-006", slug: "the-hunter-set-chocolate",
     name: "The Hunter Set — Chocolate Brown",
     category: "suits", price: 465000, currency: "₦",
@@ -155,6 +163,7 @@ export const products: Product[] = [
 
   // ───── NATIVES ─────
   {
+    ...DEFAULTS,
     id: "p-101", slug: "native-naa-001",
     name: "Heritage Native — NAA",
     category: "natives", price: 425000, currency: "₦",
@@ -172,6 +181,7 @@ export const products: Product[] = [
     badge: "Bestseller",
   },
   {
+    ...DEFAULTS,
     id: "p-102", slug: "native-nab-002",
     name: "Heritage Native — NAB",
     category: "natives", price: 395000, currency: "₦",
@@ -189,6 +199,7 @@ export const products: Product[] = [
 
   // ───── AGBADA ─────
   {
+    ...DEFAULTS,
     id: "p-151", slug: "agbada-aaa-001",
     name: "Royal Agbada — AAA",
     category: "agbada", price: 520000, currency: "₦",
@@ -206,6 +217,7 @@ export const products: Product[] = [
     badge: "Bestseller",
   },
   {
+    ...DEFAULTS,
     id: "p-152", slug: "agbada-aaa-002",
     name: "Grand Agbada — AAA",
     category: "agbada", price: 480000, currency: "₦",
@@ -222,6 +234,7 @@ export const products: Product[] = [
 
   // ───── KAFTAN ─────
   {
+    ...DEFAULTS,
     id: "p-161", slug: "kaftan-kaf-001",
     name: "Embroidered Kaftan — KAF",
     category: "kaftan", price: 285000, currency: "₦",
@@ -238,6 +251,7 @@ export const products: Product[] = [
     fabric: "Silk-cotton blend",
   },
   {
+    ...DEFAULTS,
     id: "p-162", slug: "kaftan-kaf-002",
     name: "Regal Kaftan — KAF",
     category: "kaftan", price: 310000, currency: "₦",
@@ -254,6 +268,7 @@ export const products: Product[] = [
 
   // ───── PANTS ─────
   {
+    ...DEFAULTS,
     id: "p-171", slug: "pant-paa-001",
     name: "Tailored Trousers — PAA",
     category: "pants", price: 145000, currency: "₦",
@@ -268,6 +283,7 @@ export const products: Product[] = [
     badge: "Bestseller",
   },
   {
+    ...DEFAULTS,
     id: "p-172", slug: "pant-pab-002",
     name: "Tailored Trousers — PAB",
     category: "pants", price: 135000, currency: "₦",
@@ -283,6 +299,7 @@ export const products: Product[] = [
 
   // ───── CASUALS ─────
   {
+    ...DEFAULTS,
     id: "p-205", slug: "casuals-caa-001",
     name: "Bespoke Casual — CAA",
     category: "casuals", price: 145000, currency: "₦",
@@ -298,6 +315,7 @@ export const products: Product[] = [
 
   // ───── LADIES ─────
   {
+    ...DEFAULTS,
     id: "p-301", slug: "ladies-suit-brown",
     name: "Ladies Suit — Brown",
     category: "ladies", price: 510000, currency: "₦",
@@ -312,6 +330,7 @@ export const products: Product[] = [
     badge: "Bestseller",
   },
   {
+    ...DEFAULTS,
     id: "p-302", slug: "ladies-suit-pink",
     name: "Ladies Suit — Pink",
     category: "ladies", price: 480000, currency: "₦",
@@ -328,6 +347,7 @@ export const products: Product[] = [
     badge: "New",
   },
   {
+    ...DEFAULTS,
     id: "p-303", slug: "ladies-royal-purple-tweed",
     name: "Royal Purple Tweed Ladies Suit",
     category: "ladies", price: 620000, currency: "₦",

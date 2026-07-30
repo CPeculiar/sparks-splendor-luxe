@@ -43,7 +43,7 @@ function AdminProducts() {
   async function load(p = page, cat = filterCategory, status = filterStatus, subCat = filterSubCategory, search = filterSearch) {
     setLoading(true);
     try {
-      const params: any = { page: p, limit: 20 };
+      const params: any = { page: p, limit: 10 };
       if (cat) params.category = cat;
       if (subCat) params.sub_category = subCat;
       if (status !== "") params.is_active = status === "active";

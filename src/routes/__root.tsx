@@ -75,7 +75,7 @@ function RootComponent() {
         )}
         <div className="min-h-screen flex flex-col">
           {!isAdminRoute && <Header />}
-          <main className={`flex-1${!isAdminRoute ? " pt-16 md:pt-20" : ""}` }>
+          <main className={`flex-1${!isAdminRoute && pathname !== "/" ? " pt-16 md:pt-20" : ""}` }>
             <Outlet />
           </main>
           {!isAdminRoute && <Footer />}

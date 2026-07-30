@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { products as staticProducts, categories as staticCategories, type Product, type Category } from "./products";
 
+export type { Product, ProductComponent } from "./products";
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 function rowToProduct(r: any): Product {
@@ -19,7 +21,27 @@ function rowToProduct(r: any): Product {
 
   // Determine display price based on currency from API
   const displayCurrency = r.display_currency || "NGN";
-  const displayPrice = displayCurrency === "USD" ? (r.price_usd || r.price) : r.price;
+  const hasComponents = r.has_components === true || r.has_components === "true";
+  const components = Array.isArray(r.components)
+    ? r.components.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        price: Number(c.price),
+        price_usd: c.price_usd ? Number(c.price_usd) : null,
+        is_required: c.is_required === true || c.is_required === "true",
+        sort_order: Number(c.sort_order ?? 0),
+      }))
+    : [];
+
+  // For component products, base price = sum of required components
+  const requiredComponents = hasComponents ? components.filter((c) => c.is_required) : [];
+  const componentBaseNGN = requiredComponents.reduce((s, c) => s + c.price, 0);
+  const componentBaseUSD = requiredComponents.reduce((s, c) => s + (c.price_usd ?? 0), 0);
+
+  const effectivePrice    = hasComponents && componentBaseNGN > 0 ? componentBaseNGN : Number(r.price);
+  const effectivePriceUSD = hasComponents && componentBaseUSD > 0 ? componentBaseUSD : (r.price_usd ? Number(r.price_usd) : undefined);
+
+  const displayPrice = displayCurrency === "USD" ? (effectivePriceUSD || effectivePrice) : effectivePrice;
   const currencySymbol = displayCurrency === "NGN" ? "₦" : "$";
 
   return {
@@ -28,8 +50,8 @@ function rowToProduct(r: any): Product {
     name: r.name,
     category: (r.category_slug || r.category || null) as Category,
     sub_category: r.sub_category ?? null,
-    price: Number(r.price),
-    price_usd: r.price_usd ? Number(r.price_usd) : undefined,
+    price: effectivePrice,
+    price_usd: effectivePriceUSD,
     original_price: r.original_price ? Number(r.original_price) : null,
     original_price_usd: r.original_price_usd ? Number(r.original_price_usd) : null,
     display_price: displayPrice,
@@ -43,17 +65,8 @@ function rowToProduct(r: any): Product {
     description: r.description ?? "",
     fabric: r.fabric ?? "",
     badge: r.badge ?? undefined,
-    has_components: r.has_components === true || r.has_components === "true",
-    components: Array.isArray(r.components)
-      ? r.components.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          price: Number(c.price),
-          price_usd: c.price_usd ? Number(c.price_usd) : null,
-          is_required: c.is_required === true || c.is_required === "true",
-          sort_order: Number(c.sort_order ?? 0),
-        }))
-      : [],
+    has_components: hasComponents,
+    components,
   };
 }
 

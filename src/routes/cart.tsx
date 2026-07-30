@@ -53,7 +53,7 @@ function loadPaystack(): Promise<void> {
   });
 }
 
-const WHATSAPP_PHONE = "2349053572403";
+const WHATSAPP_PHONE = import.meta.env.VITE_WHATSAPP_NUMBER as string;
 
 type SuccessData = {
   ref: string;
@@ -177,6 +177,16 @@ function CartPage() {
   const [postalCode, setPostalCode] = useState("");
   const [country, setCountry] = useState("");
   const [notes, setNotes] = useState("");
+  // Country / state dropdowns
+  const [countries, setCountries] = useState<{ name: string; code: string }[]>([]);
+  const [states, setStates] = useState<string[]>([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  // Dynamic shipping
+  const [shippingFee, setShippingFee] = useState<number | null>(null);
+  const [shippingZone, setShippingZone] = useState<string | null>(null);
+  const [shippingFree, setShippingFree] = useState(false);
+  const [shippingBreakdown, setShippingBreakdown] = useState<{ base_fee: number; per_item_surcharge: number; item_count: number } | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount_value: number; discount_type: string; discount_amount: number } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
@@ -205,7 +215,60 @@ function CartPage() {
       setPhone(user.phone || "");
     }
     loadPaystack().catch(() => {});
+    // Load countries from backend
+    fetch(`${API_BASE}/api/countries`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && Array.isArray(d.data)) {
+          setCountries(d.data);
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  // Fetch states when country changes
+  useEffect(() => {
+    if (!country) { setStates([]); return; }
+    setLoadingStates(true);
+    setState("");
+    fetch(`${API_BASE}/api/countries/${encodeURIComponent(country)}/states`)
+      .then((r) => r.json())
+      .then((d) => {
+        const list: string[] = d.success && Array.isArray(d.data) ? d.data : [];
+        setStates(list);
+      })
+      .catch(() => setStates([]))
+      .finally(() => setLoadingStates(false));
+  }, [country]);
+
+  // Recalculate shipping whenever country, subtotal, currency, or item count changes
+  useEffect(() => {
+    if (!country) { setShippingFee(null); setShippingZone(null); setShippingFree(false); setShippingBreakdown(null); return; }
+    setShippingLoading(true);
+    fetch(`${API_BASE}/api/shipping/calculate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ country, currency: code, subtotal, item_count: items.length }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setShippingFee(d.data.fee);
+          setShippingZone(d.data.zone);
+          setShippingFree(d.data.free);
+          setShippingBreakdown(
+            d.data.per_item_surcharge > 0
+              ? { base_fee: d.data.base_fee, per_item_surcharge: d.data.per_item_surcharge, item_count: d.data.item_count }
+              : null
+          );
+        } else {
+          setShippingFee(null);
+          setShippingBreakdown(null);
+        }
+      })
+      .catch(() => { setShippingFee(null); setShippingBreakdown(null); })
+      .finally(() => setShippingLoading(false));
+  }, [country, subtotal, code, items.length]);
 
   const handleValidateCoupon = async () => {
     if (!couponCode.trim()) {
@@ -248,15 +311,13 @@ function CartPage() {
     state.trim() !== "" &&
     country.trim() !== "";
 
-  const shippingFree = subtotal >= 500_000;
-  //const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 15_000;
-  const shipping = items.length === 0 ? 0 : shippingFree ? 0 : 5;
+  const shipping = shippingFee ?? 0;
   const discountAmount = appliedCoupon
     ? appliedCoupon.discount_type === "percentage"
       ? (subtotal * appliedCoupon.discount_value) / 100
       : appliedCoupon.discount_value
     : 0;
-  const total = subtotal - discountAmount + shipping;
+  const total = subtotal - discountAmount + (shippingFee ?? 0);
 
   const createOrder = async () => {
     const token = getAuthToken();
@@ -280,6 +341,7 @@ function CartPage() {
       country: country || "Not provided",
       notes: notes || null,
       currency: code,
+      shipping_cost: shippingFee ?? 0,
       coupon_code: appliedCoupon?.code || null,
       discount_amount: discountAmount,
       items: orderItems,
@@ -389,6 +451,11 @@ function CartPage() {
   const handlePay = async () => {
     setError(null);
 
+    if (!PAYSTACK_KEY) {
+      setError("Payment is not configured. Please contact support.");
+      return;
+    }
+
     const value = (emailRef.current?.value || email).trim();
     if (!value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       setError("Please enter a valid email address.");
@@ -423,6 +490,9 @@ function CartPage() {
       }
 
       // 4. Setup Paystack v2 — use access_code from server-side init for full channel support
+      const paystackChannels = paymentInfo.currency === "NGN"
+        ? ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money"]
+        : ["card"];
       const popup = new window.PaystackPop();
       popup.newTransaction({
         ...(paymentInfo.accessCode
@@ -433,14 +503,14 @@ function CartPage() {
               amount: paymentInfo.amount,
               currency: paymentInfo.currency,
               ref: paymentInfo.reference,
-              channels: ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money", "eft"],
+              channels: paystackChannels,
             }),
         key: PAYSTACK_KEY,
         email: value,
         amount: paymentInfo.amount,
         currency: paymentInfo.currency,
         ref: paymentInfo.reference,
-        channels: ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money", "eft"],
+        channels: paystackChannels,
         metadata: {
           custom_fields: [
             {
@@ -486,13 +556,16 @@ function CartPage() {
     const info = abandonedPaymentInfo;
     setAbandonedOrderId(null);
     const popup = new window.PaystackPop();
+    const retryChannels = info.currency === "NGN"
+      ? ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money"]
+      : ["card"];
     popup.newTransaction({
       key: PAYSTACK_KEY,
       email: info.email,
       amount: info.amount,
       currency: info.currency,
       ref: info.reference,
-      channels: ["card", "bank", "ussd", "bank_transfer", "qr", "mobile_money", "eft"],
+      channels: retryChannels,
       onSuccess: (res) => {
         void verifyAndConfirm(res.reference, { orderId: info.orderId, orderNumber: info.orderNumber, items: info.items });
       },
@@ -601,7 +674,17 @@ function CartPage() {
             )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Shipping</span>
-              <span className="tabular-nums">{shipping === 0 ? <span className="text-gold-deep">Free</span> : format(shipping)}</span>
+              <span className="tabular-nums">
+                {!country
+                  ? <span className="text-muted-foreground text-xs italic">Enter address</span>
+                  : shippingLoading
+                  ? <span className="text-muted-foreground text-xs">Calculating...</span>
+                  : shippingFee === null
+                  ? <span className="text-muted-foreground text-xs">Contact us</span>
+                  : shippingFree
+                  ? <span className="text-gold-deep">Free</span>
+                  : format(shippingFee)}
+              </span>
             </div>
           </div>
           <div className="flex justify-between border-t border-border pt-3 text-base">
@@ -652,10 +735,28 @@ function CartPage() {
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
-                <span className="tabular-nums">{shipping === 0 ? <span className="text-gold-deep">Free</span> : format(shipping)}</span>
+                <span className="tabular-nums">
+                  {!country
+                    ? <span className="text-muted-foreground text-xs italic">Enter address</span>
+                    : shippingLoading
+                    ? <span className="text-muted-foreground text-xs">Calculating...</span>
+                    : shippingFee === null
+                    ? <span className="text-muted-foreground text-xs">Contact us</span>
+                    : shippingFree
+                    ? <span className="text-gold-deep">Free</span>
+                    : format(shippingFee)}
+                </span>
               </div>
-              {!shippingFree && (
-                <p className="text-[11px] text-muted-foreground">Free shipping on orders above ₦500,000.</p>
+              {shippingZone && !shippingLoading && (
+                <p className="text-[11px] text-muted-foreground">Zone: {shippingZone}</p>
+              )}
+              {shippingBreakdown && !shippingFree && shippingFee !== null && shippingFee > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  {format(shippingBreakdown.base_fee)} base + {format(shippingBreakdown.per_item_surcharge)} × {shippingBreakdown.item_count} item{shippingBreakdown.item_count > 1 ? "s" : ""}
+                </p>
+              )}
+              {!shippingFree && shippingFee !== null && shippingFee > 0 && !shippingBreakdown && (
+                <p className="text-[11px] text-muted-foreground">Free shipping available above a threshold for your zone.</p>
               )}
             </div>
             <div className="flex justify-between border-t border-border pt-4 text-base">
@@ -751,13 +852,45 @@ function CartPage() {
                 </div>
                 <div>
                   <label htmlFor="country" className="text-eyebrow block mb-2">Country <span className="text-destructive">*</span></label>
-                  <input id="country" value={country} onChange={(e) => setCountry(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
+                  <select
+                    id="country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold"
+                  >
+                    <option value="">Select country...</option>
+                    {countries.map((c) => (
+                      <option key={c.code} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="state" className="text-eyebrow block mb-2">State <span className="text-destructive">*</span></label>
-                  <input id="state" value={state} onChange={(e) => setState(e.target.value)} className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold" />
+                  {states.length > 0 ? (
+                    <select
+                      id="state"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      disabled={!country || loadingStates}
+                      className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold disabled:opacity-50"
+                    >
+                      <option value="">{loadingStates ? "Loading..." : "Select state..."}</option>
+                      {states.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id="state"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      disabled={!country}
+                      placeholder={!country ? "Select country first" : "Enter state / region"}
+                      className="w-full border border-border bg-background px-4 py-3 text-sm outline-none focus:border-gold disabled:opacity-50"
+                    />
+                  )}
                 </div>
                 <div>
                   <label htmlFor="postalCode" className="text-eyebrow block mb-2">Postal code <span className="text-muted-foreground">(optional)</span></label>

@@ -6,25 +6,62 @@ export const Route = createFileRoute("/contact")({
   component: ContactPage,
 });
 
-const EMAILJS_SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID  || "YOUR_SERVICE_ID";
-const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "YOUR_TEMPLATE_ID";
-const EMAILJS_PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  || "YOUR_PUBLIC_KEY";
-const WHATSAPP_NUMBER = "2349053572403";
+const EMAILJS_SERVICE_ID  = import.meta.env.VITE_EMAILJS_SERVICE_ID  as string;
+const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string;
+const EMAILJS_PUBLIC_KEY  = import.meta.env.VITE_EMAILJS_PUBLIC_KEY  as string;
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string;
+
+type FormErrors = Record<string, string>;
+
+function validate(form: HTMLFormElement): FormErrors {
+  const errs: FormErrors = {};
+  const get = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement)?.value.trim() ?? "";
+
+  const firstName = get("first_name");
+  const lastName  = get("last_name");
+  const email     = get("reply_to");
+  const phone     = get("phone");
+  const message   = get("message");
+
+  if (!firstName) errs.first_name = "First name is required.";
+  else if (!/^[A-Za-z\s'-]{2,}$/.test(firstName)) errs.first_name = "Enter a valid first name (letters only).";
+
+  if (!lastName) errs.last_name = "Last name is required.";
+  else if (!/^[A-Za-z\s'-]{2,}$/.test(lastName)) errs.last_name = "Enter a valid last name (letters only).";
+
+  if (!email) errs.reply_to = "Email address is required.";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) errs.reply_to = "Enter a valid email address.";
+
+  if (!phone) errs.phone = "Phone number is required.";
+  else if (!/^[+]?[\d\s()\-]{7,20}$/.test(phone)) errs.phone = "Enter a valid phone number.";
+
+  if (!message) errs.message = "Message is required.";
+  else if (message.length < 10) errs.message = "Message must be at least 10 characters.";
+
+  return errs;
+}
 
 function ContactPage() {
   const formRef = useRef<HTMLFormElement>(null);
   const [sending, setSending] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [showSuccess, setShowSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formRef.current) return;
+
+    const errs = validate(formRef.current);
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+    setFieldErrors({});
     setSending(true);
-    setError(null);
+    setSubmitError(null);
 
     try {
-      // Dynamically load EmailJS so it doesn't bloat the bundle
       const emailjs = await import("@emailjs/browser");
       await emailjs.sendForm(
         EMAILJS_SERVICE_ID,
@@ -36,7 +73,7 @@ function ContactPage() {
       setShowSuccess(true);
     } catch (err) {
       console.error("EmailJS error:", err);
-      setError("Failed to send your message. Please try again or contact us directly on WhatsApp.");
+      setSubmitError("Failed to send your message. Please try again or contact us directly on WhatsApp.");
     } finally {
       setSending(false);
     }
@@ -55,20 +92,21 @@ function ContactPage() {
       </section>
 
       <section className="container-luxe py-16 md:py-24 grid lg:grid-cols-2 gap-12 lg:gap-20">
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+        <form ref={formRef} onSubmit={handleSubmit} noValidate className="space-y-5">
           <p className="text-eyebrow">Write to Us</p>
           <h2 className="font-display text-3xl md:text-4xl leading-tight">Let's Create Something Exceptional.</h2>
 
           <div className="grid sm:grid-cols-2 gap-4 mt-6">
-            <Field label="First Name" name="first_name" />
-            <Field label="Last Name"  name="last_name" />
+            <Field label="First Name" name="first_name" error={fieldErrors.first_name} />
+            <Field label="Last Name"  name="last_name"  error={fieldErrors.last_name} />
           </div>
-          <Field label="Email Address" name="reply_to" type="email" />
-          <Field label="Phone (optional)" name="phone" type="tel" required={false} />
+          <Field label="Email Address" name="reply_to" type="email" error={fieldErrors.reply_to} />
+          <Field label="Phone Number" name="phone" type="tel" error={fieldErrors.phone} />
 
           {/* Hidden fields so EmailJS knows where to send */}
           <input type="hidden" name="to_email" value="sparksandsplendour@gmail.com" />
           <input type="hidden" name="cc_email" value="Ifeanyichukwuelekwachi@gmail.com" />
+          <input type="hidden" name="time" value={new Date().toLocaleString("en-GB", { dateStyle: "full", timeStyle: "short" })} />
 
           <div>
             <label className="text-eyebrow block mb-2">Reason for enquiry</label>
@@ -82,10 +120,17 @@ function ContactPage() {
           </div>
           <div>
             <label className="text-eyebrow block mb-2">Message</label>
-            <textarea name="message" rows={5} required className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold resize-none" />
+            <textarea
+              name="message"
+              rows={5}
+              className={`w-full border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold resize-none ${
+                fieldErrors.message ? "border-destructive" : "border-border"
+              }`}
+            />
+            {fieldErrors.message && <p className="text-xs text-destructive mt-1">{fieldErrors.message}</p>}
           </div>
 
-          {error && <p className="text-sm text-destructive bg-destructive/10 p-3">{error}</p>}
+          {submitError && <p className="text-sm text-destructive bg-destructive/10 p-3">{submitError}</p>}
 
           <button
             type="submit"
@@ -169,11 +214,19 @@ function SuccessModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Field({ label, name, type = "text", required = true }: { label: string; name: string; type?: string; required?: boolean }) {
+function Field({ label, name, type = "text", error }: { label: string; name: string; type?: string; error?: string }) {
   return (
     <div>
       <label htmlFor={name} className="text-eyebrow block mb-2">{label}</label>
-      <input id={name} name={name} type={type} required={required} className="w-full border border-border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold" />
+      <input
+        id={name}
+        name={name}
+        type={type}
+        className={`w-full border bg-transparent px-4 py-3 text-sm focus:outline-none focus:border-gold ${
+          error ? "border-destructive" : "border-border"
+        }`}
+      />
+      {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
   );
 }

@@ -4,9 +4,13 @@
   "outputDirectory": "dist/spa",
   "installCommand": "npm install",
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!.well-known).*)", "destination": "/index.html" }
   ],
   "headers": [
+    {
+      "source": "/.well-known/apple-developer-merchantid-domain-association",
+      "headers": [{ "key": "Content-Type", "value": "application/text" }]
+    },
     {
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]

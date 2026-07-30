@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Heart, Minus, Plus, Scissors, Shield, Star, Truck, ChevronRight, X } from "lucide-react";
 import { useProduct, useProducts } from "@/lib/db-products";
+import type { Product } from "@/lib/db-products";
 import { ProductCard } from "@/components/ProductCard";
 import { PriceDisplay } from "@/components/PriceDisplay";
 import { useCart } from "@/lib/cart";
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/product/$slug")({
 
 function ProductPage() {
   const { slug } = Route.useParams();
-  const { product, loading } = useProduct(slug);
+  const { product, loading } = useProduct(slug) as { product: Product | undefined; loading: boolean };
   const { products: relatedProducts } = useProducts({ category: product?.category });
   const { add } = useCart();
   const { format } = useCurrency();
@@ -38,7 +39,7 @@ function ProductPage() {
 
   // Sync required components whenever the product changes
   useEffect(() => {
-    if (!product?.has_components || !product.components?.length) return;
+    if (!product?.has_components || !product.components.length) return;
     if (componentProductId === product.id) return; // already initialised for this product
     const required = new Set(product.components.filter(c => c.is_required).map(c => String(c.id)));
     setSelectedComponentIds(required);
@@ -52,7 +53,13 @@ function ProductPage() {
     setReviewsLoading(true);
     fetch(`${API_BASE}/api/reviews/product/${product.id}`)
       .then(r => r.json())
-      .then(d => setReviews(d.data || []))
+      .then(d => setReviews((d.data || []).map((r: any) => ({
+          id: r.id,
+          rating: Number(r.rating) || 0,
+          title: String(r.title ?? ""),
+          body: String(r.body ?? ""),
+          created_at: String(r.created_at ?? ""),
+        }))))
       .catch(() => setReviews([]))
       .finally(() => setReviewsLoading(false));
 
@@ -182,12 +189,12 @@ function ProductPage() {
   const related = relatedProducts.filter(p => p.id !== product.id).slice(0, 4);
 
   // Component pricing
-  const isComponentProduct = product.has_components && product.components && product.components.length > 0;
+  const isComponentProduct = Boolean(product.has_components && product.components.length > 0);
   const selectedComponents = isComponentProduct
-    ? product.components!.filter(c => selectedComponentIds.has(String(c.id)))
+    ? product.components.filter(c => selectedComponentIds.has(String(c.id)))
     : [];
   const requiredComponents = isComponentProduct
-    ? product.components!.filter(c => c.is_required)
+    ? product.components.filter(c => c.is_required)
     : [];
   const componentTotalNGN = selectedComponents.reduce((s, c) => s + c.price, 0);
   const componentTotalUSD = selectedComponents.reduce((s, c) => s + (c.price_usd ?? 0), 0);
@@ -292,7 +299,7 @@ function ProductPage() {
               <p className="text-eyebrow">Build Your Look</p>
               <p className="text-xs text-muted-foreground">Included pieces are always part of your order. Add optional pieces to customise.</p>
               <div className="space-y-2">
-                {product.components!.map((c) => {
+                {product.components.map((c) => {
                   const isSelected = selectedComponentIds.has(String(c.id));
                   const isReq = c.is_required;
                   const itemPrice = product.display_currency === "USD" ? (c.price_usd ?? 0) : c.price;

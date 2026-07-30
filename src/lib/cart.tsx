@@ -2,7 +2,7 @@ import {
   createContext, useCallback, useContext, useEffect,
   useMemo, useRef, useState, type ReactNode
 } from "react";
-import type { Product, ProductComponent } from "./products";
+import type { Product, ProductComponent } from "./db-products";
 
 export interface CartItem {
   product: Product;

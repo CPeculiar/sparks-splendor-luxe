@@ -23,24 +23,20 @@ export function CurrencyProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
-      const response = await fetch(`${API_BASE}/api/products?limit=1`);
+      const response = await fetch(`${API_BASE}/api/currency`);
       if (!response.ok) throw new Error("Failed to detect currency");
 
       const data = await response.json();
-      const detectedCurrency = data.currency || "NGN";
+      const detectedCurrency: "NGN" | "USD" = data.currency === "USD" ? "USD" : "NGN";
       setCurrency(detectedCurrency);
-
-      // Cache the detected currency in localStorage
       localStorage.setItem("sparks_currency", detectedCurrency);
     } catch (error) {
       console.warn("Currency auto-detection failed:", error);
-
-      // Try to use cached currency
       const cached = localStorage.getItem("sparks_currency");
       if (cached === "NGN" || cached === "USD") {
         setCurrency(cached);
       } else {
-        setCurrency("NGN"); // Default fallback
+        setCurrency("NGN");
       }
     } finally {
       setLoading(false);

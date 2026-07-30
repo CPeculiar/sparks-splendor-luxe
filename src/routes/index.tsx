@@ -85,7 +85,7 @@ function HeroCarousel() {
 
   useEffect(() => {
     fetch(`${API_BASE}/api/hero-slides`)
-      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("fetch error")))
       .then((d) => {
         const rows = d?.data;
         if (!Array.isArray(rows) || !rows.length) return;
@@ -619,7 +619,7 @@ function Testimonials() {
   );
 }
 
-function Promise() {
+function OurPromise() {
   const items = [
     { I: Scissors, t: "Bespoke Atelier",   d: "Hand-cut & finished by master tailors." },
     { I: Award,    t: "Heritage Fabrics",  d: "Italian, Belgian & hand-loomed aso-oke." },
@@ -657,7 +657,7 @@ function HomePage() {
       <EditorialBanner />
       <PromoBanner />
       <Testimonials />
-      <Promise />
+      <OurPromise />
     </>
   );
 }

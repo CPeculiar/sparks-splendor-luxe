@@ -141,7 +141,7 @@ export function Footer () {
             <li className="flex gap-2 items-start"><MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" /> 2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
               Lekki, Lagos State, Nigeria</li>
             <li className="flex gap-2 items-start"><Phone className="h-4 w-4 text-gold shrink-0 mt-0.5" />
-              <a href="tel:+2349053572403" className="hover:text-gold transition-colors">+234 905 357 2403</a>
+              <a href={`tel:+${import.meta.env.VITE_WHATSAPP_NUMBER}`} className="hover:text-gold transition-colors">+234 905 357 2403</a>
             </li>
             <li className="flex gap-2 items-start"><Mail className="h-4 w-4 text-gold shrink-0 mt-0.5" />
               <a href="mailto:support@sparksandsplendour.com" className="hover:text-gold transition-colors">support@sparksandsplendour.com</a>

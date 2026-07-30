@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchOrders, updateOrderStatus, fetchOrderEdits, postOrderEdit, refundOrder, deleteOrder, type AdminOrder } from "@/lib/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { StatusPill } from "./admin.index";
@@ -22,6 +22,8 @@ function AdminOrders() {
   const [editNote, setEditNote] = useState('');
   const [editChanges, setEditChanges] = useState('');
   const [editsReloadKey, setEditsReloadKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
   const user = getCurrentUser();
 
   useEffect(() => { void load(); }, []);
@@ -53,6 +55,9 @@ function AdminOrders() {
     );
   }, [q, orders]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   async function changeStatus(id: string, order_status: string) {
     try {
       const updated = await updateOrderStatus(id, order_status);
@@ -74,7 +79,7 @@ function AdminOrders() {
           <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => { setQ(e.target.value); setPage(1); }}
             placeholder="Search email or order #"
             className="pl-9 pr-3 py-2 border border-border bg-background text-sm w-72 outline-none focus:border-gold"
           />
@@ -95,7 +100,7 @@ function AdminOrders() {
           <tbody>
             {loading && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading…</td></tr>}
             {!loading && !filtered.length && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No orders found.</td></tr>}
-            {filtered.map((o) => (
+            {paginated.map((o) => (
               <tr key={o.id} className="border-t border-border hover:bg-secondary/20">
                 <td className="p-3 font-mono text-xs">{o.order_number}</td>
                 <td className="p-3">
@@ -114,6 +119,26 @@ function AdminOrders() {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between border border-border bg-secondary/20 px-4 py-3 gap-3">
+          <p className="text-xs text-muted-foreground">{filtered.length} orders · Page {page} of {totalPages}</p>
+          <div className="flex gap-2">
+            <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs hover:border-gold hover:text-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              <ChevronLeft className="h-3.5 w-3.5" /> Prev
+            </button>
+            {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+              const pg = totalPages <= 7 ? i + 1 : page <= 4 ? i + 1 : page >= totalPages - 3 ? totalPages - 6 + i : page - 3 + i;
+              return (
+                <button key={pg} onClick={() => setPage(pg)} className={`px-3 py-1.5 text-xs border transition-colors ${pg === page ? "bg-onyx text-cream border-onyx" : "border-border hover:border-gold hover:text-gold"}`}>{pg}</button>
+              );
+            })}
+            <button onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="flex items-center gap-1 px-3 py-1.5 border border-border text-xs hover:border-gold hover:text-gold disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+              Next <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {opened && (
         <div className="fixed inset-0 z-50 flex" onClick={() => setOpened(null)}>
