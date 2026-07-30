@@ -480,17 +480,18 @@ function SuitsSection() {
 const CAT_ROW_INITIAL = 4; // one row of 4
 const CAT_ROW_MORE   = 4; // one more row on load-more
 
-function CategoryRow({ title, eyebrow, category, shopSearch }: {
+function CategoryRow({ title, eyebrow, category, subCategory, shopSearch }: {
   title: string;
   eyebrow: string;
   category: string;
+  subCategory?: string;
   shopSearch: Record<string, string>;
 }) {
-  const { products } = useProducts({ category });
+  const { products } = useProducts({ category, subCategory });
   const [visibleCount, setVisibleCount] = useState(CAT_ROW_INITIAL);
 
   // Reset on mount (refresh / navigate back)
-  useEffect(() => { setVisibleCount(CAT_ROW_INITIAL); }, [category]);
+  useEffect(() => { setVisibleCount(CAT_ROW_INITIAL); }, [category, subCategory]);
 
   if (!products.length) return null;
 
@@ -649,10 +650,10 @@ function HomePage() {
       <CategoryGrid />
       <NewIn />
       <SuitsSection />
-      <CategoryRow title="Natives"  eyebrow="Heritage Reimagined"  category="natives"  shopSearch={{ category: "natives" }} />
-      <CategoryRow title="Agbada"   eyebrow="Royal Drape"          category="agbada"   shopSearch={{ category: "agbada" }} />
-      <CategoryRow title="Kaftan"   eyebrow="Refined Comfort"      category="kaftan"   shopSearch={{ category: "kaftan" }} />
-      <CategoryRow title="Ladies"   eyebrow="Couture for Her"      category="ladies"   shopSearch={{ category: "ladies" }} />
+      <CategoryRow title="African Attire" eyebrow="Heritage Reimagined" category="african-attire" shopSearch={{ category: "african-attire" }} />
+      {/* <CategoryRow title="Agbada"   eyebrow="Royal Drape"          category="agbada"   shopSearch={{ category: "agbada" }} /> */}
+      {/* <CategoryRow title="Kaftan"   eyebrow="Refined Comfort"      category="kaftan"   shopSearch={{ category: "kaftan" }} /> */}
+      <CategoryRow title="Ladies"   eyebrow="Couture for Her"      category="suits"    subCategory="ladies" shopSearch={{ category: "suits", subCategory: "ladies" }} />
       <CategoryRow title="Casuals"  eyebrow="Quiet Luxury"         category="casuals"  shopSearch={{ category: "casuals" }} />
       <EditorialBanner />
       <PromoBanner />

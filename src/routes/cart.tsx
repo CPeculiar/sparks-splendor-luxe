@@ -29,6 +29,20 @@ declare global {
         onSuccess: (res: { reference: string }) => void;
         onCancel: () => void;
       }) => void;
+      paymentRequest: (opts: {
+        key: string;
+        email: string;
+        amount: number;
+        currency: string;
+        ref: string;
+        container: string;
+        loadPaystackCheckoutButton?: string;
+        style?: object;
+        onSuccess: (res: { reference: string }) => void;
+        onError: () => void;
+        onCancel: () => void;
+        onElementsMount?: (elements: { applePay: boolean } | null) => void;
+      }) => Promise<void>;
     };
   }
 }
@@ -194,6 +208,7 @@ function CartPage() {
   const [paying, setPaying] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [applePayMounted, setApplePayMounted] = useState(false);
   const [success, setSuccess] = useState<{
     ref: string;
     total: number;
@@ -432,6 +447,15 @@ function CartPage() {
     }
   };
 
+  // Detect Apple Pay availability (Safari/iOS only)
+  useEffect(() => {
+    const isApplePayCapable =
+      typeof window !== "undefined" &&
+      (window as any).ApplePaySession &&
+      (window as any).ApplePaySession.canMakePayments?.();
+    setApplePayMounted(!!isApplePayCapable);
+  }, []);
+
   // Called when customer closes Paystack modal without completing payment
   const abandonOrder = async (orderId: string) => {
     try {
@@ -549,6 +573,52 @@ function CartPage() {
     setFailedModal(null);
     setError(null);
     await handlePay();
+  };
+
+  const handleApplePay = async () => {
+    if (!PAYSTACK_KEY || !isFormValid) return;
+    setError(null);
+    setPaying(true);
+    try {
+      await loadPaystack();
+      if (!window.PaystackPop) throw new Error("Paystack failed to load.");
+      // Create order now so we have a real amount and reference
+      const orderInfo = await createOrder();
+      const paymentInfo = await getPaymentInfo(orderInfo.orderId);
+      const popup = new window.PaystackPop();
+      await popup.paymentRequest({
+        key: PAYSTACK_KEY,
+        email: email.trim(),
+        amount: paymentInfo.amount,
+        currency: paymentInfo.currency,
+        ref: paymentInfo.reference,
+        container: "paystack-apple-pay",
+        loadPaystackCheckoutButton: "paystack-other-channels",
+        style: { theme: "dark", applePay: { width: "100%", borderRadius: "0px", type: "pay" } },
+        onSuccess: (res) => {
+          setPaying(false);
+          void verifyAndConfirm(res.reference, orderInfo);
+        },
+        onError: () => {
+          setPaying(false);
+          void abandonOrder(orderInfo.orderId);
+          setFailedModal({ message: "Apple Pay payment failed. Please try another method." });
+        },
+        onCancel: () => {
+          setPaying(false);
+          void abandonOrder(orderInfo.orderId);
+          setAbandonedOrderId(orderInfo.orderId);
+          setAbandonedPaymentInfo({ ...orderInfo, amount: paymentInfo.amount, currency: paymentInfo.currency, reference: paymentInfo.reference, email: email.trim() });
+        },
+        onElementsMount: (elements) => {
+          setApplePayMounted(elements?.applePay === true);
+          if (elements?.applePay) setPaying(false); // button mounted, not paying yet
+        },
+      });
+    } catch (e) {
+      setPaying(false);
+      setFailedModal({ message: e instanceof Error ? e.message : "Payment could not be initiated." });
+    }
   };
 
   const retryAbandonedPayment = () => {
@@ -722,7 +792,7 @@ function CartPage() {
           ))}
         </div>
 
-        <aside className="hidden lg:block lg:sticky lg:top-28 space-y-6">
+        <aside className="block lg:sticky lg:top-28 space-y-6">
           <div className="border border-border bg-secondary/30 p-6 space-y-4">
             <h2 className="font-display text-2xl">Order Summary</h2>
             <div className="space-y-2 text-sm">
@@ -905,7 +975,24 @@ function CartPage() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
+            {/* Apple Pay button — only visible on Apple devices/Safari */}
+            {applePayMounted && (
+              <>
+                <div
+                  id="paystack-apple-pay"
+                  onClick={isFormValid && !paying ? handleApplePay : undefined}
+                  className={!isFormValid || paying ? "opacity-50 pointer-events-none" : ""}
+                />
+                <div className="flex items-center gap-3 text-[10px] tracking-[0.2em] uppercase text-muted-foreground">
+                  <div className="flex-1 h-px bg-border" />
+                  <span>or</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              </>
+            )}
+
             <button
+              id="paystack-other-channels"
               onClick={handlePay}
               disabled={paying || verifying || !isFormValid}
               className="w-full bg-onyx text-cream py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-gold hover:text-onyx transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2"
