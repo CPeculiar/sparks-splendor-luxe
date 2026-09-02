@@ -62,7 +62,7 @@ function AboutPage() {
         </div>
       </section>
 
-      <section className="container-luxe py-20 md:py-28">
+      {/* <section className="container-luxe py-20 md:py-28">
         <div className="text-center mb-14">
           <p className="text-eyebrow">Atelier</p>
           <h2 className="font-display text-4xl md:text-5xl mt-3">Meet the Makers</h2>
@@ -86,7 +86,7 @@ function AboutPage() {
             </figure>
           ))}
         </div>
-      </section>
+      </section> */}
 
       <section className="bg-secondary/40 py-20">
         <div className="container-luxe text-center max-w-2xl mx-auto">

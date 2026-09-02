@@ -53,7 +53,6 @@ export function Header() {
             { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
             { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
             { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
-            { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
             { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
           ]);
           return;
@@ -65,6 +64,7 @@ export function Header() {
         // Filter to only active categories and map to NavCategory format
         const activeCategories: NavCategory[] = (data.data || [])
           .filter((c: any) => c.is_active !== false)
+          .filter((c: any) => c.slug !== "casuals")
           .map((c: any) => ({
             id: c.id,
             label: c.name,
@@ -110,7 +110,6 @@ export function Header() {
               { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
               { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
               { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
-              { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
               { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
             ]);
             return;
@@ -126,7 +125,6 @@ export function Header() {
           { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
           { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
           { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
-          { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
           { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
         ]);
       } catch (e) {
@@ -139,7 +137,6 @@ export function Header() {
           { id: "4", label: "Agbada", slug: "agbada", is_active: true, hasSub: false },
           { id: "5", label: "Shirts", slug: "shirts", is_active: true, hasSub: false },
           { id: "6", label: "Pants", slug: "pants", is_active: true, hasSub: false },
-          { id: "7", label: "Casuals", slug: "casuals", is_active: true, hasSub: false },
           { id: "8", label: "Ladies", slug: "ladies", is_active: true, hasSub: false },
         ]);
       } finally {

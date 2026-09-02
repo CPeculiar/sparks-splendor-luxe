@@ -57,7 +57,7 @@ function ShippingPolicyPage() {
             </table>
             <p className="mt-4">
               Clients in Lagos may also opt for a complimentary in-premium collection at
-              2b Baale Street, Lafiaji Off Buena Estate Orchid Road, Lekki, Lagos State, Nigeria, during business hours
+              Sparks and Splendour Baale Street, Lafiaji Orchid road Lekki, Lagos State, during business hours
               (Monday – Saturday, 10am – 7pm).
             </p>
           </PolicySection>
@@ -139,7 +139,7 @@ function ShippingPolicyPage() {
               <li>Email: <a href="mailto:support@sparksandsplendour.com" className="text-gold-deep underline">support@sparksandsplendour.com</a></li>
               <li>Phone: <a href="tel:+2348137037919" className="text-gold-deep underline">+234 905 357 2403</a></li>
               <li>WhatsApp: <a href="https://wa.me/2348137037919" className="text-gold-deep underline" target="_blank" rel="noopener noreferrer">+234 905 357 2403</a></li>
-              <li>Address: 2b Baale Street, Lafiaji Off Buena Estate Orchid Road, Lekki, Lagos State, Nigeria, Nigeria</li>
+              <li>Address: Sparks and Splendour Baale Street, Lafiaji Orchid road Lekki, Lagos State</li>
             </ul>
           </PolicySection>
 

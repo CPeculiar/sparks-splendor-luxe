@@ -22,10 +22,10 @@ const SLIDES_FALLBACK: Slide[] = [
   {
     type: "video",
     src: "/gallery-compressed/Hero-assets/heroVideo.mp4",
-    eyebrow: "Autumn / Winter Collection",
+    eyebrow: "The Bespoke Experience",
     title: "The Art of Bespoke",
-    subtitle: "A house dedicated to the quiet authority of craftsmanship.",
-    cta: "Discover the Collection",
+    subtitle: "A house built on craftmanship, character and quiet authority. Every piece is thoughtfully conceived and meticulously crafted to become part of your story.",
+    cta: "Explore Categories",
     href: { to: "/shop" },
   },
   {
@@ -33,27 +33,36 @@ const SLIDES_FALLBACK: Slide[] = [
     src: "/gallery-compressed/Hero-assets/heroImg-01.jpg",
     eyebrow: "Signature Suits",
     title: "Sculpted Tailoring",
-    subtitle: "Architectural silhouettes hand-finished in our Lagos office.",
+    subtitle: "Distinctive silhouettes, meticulously crafted by hand in our Lagos Atelier.",
     cta: "Shop Suits",
     href: { to: "/shop", search: { category: "suits" } },
   },
   {
     type: "image",
     src: "/gallery-compressed/Hero-assets/heroImg-02.jpg",
-    eyebrow: "Heritage Reimagined",
-    title: "Royal Natives",
-    subtitle: "Hand-embroidered agbada and kaftans for the modern monarch.",
-    cta: "Shop Natives",
-    href: { to: "/shop", search: { category: "natives" } },
+    eyebrow: "Where Love Meets Craft",
+    title: "For Weddings",
+    subtitle: "Made for the moments you will remember forever. Bespoke wedding looks crafted to honour love, individuality, and the significance of your day.",
+    cta: "Shop Wedding Suits",
+    href: { to: "/shop", search: { category: "suits" } },
   },
   {
     type: "image",
     src: "/gallery-compressed/Hero-assets/heroImg-03.jpg",
-    eyebrow: "Couture for Her",
-    title: "Ladies Atelier",
-    subtitle: "Aso-ebi & couture pieces sculpted in golden silk.",
-    cta: "Shop Ladies",
-    href: { to: "/shop", search: { category: "ladies" } },
+    eyebrow: "Heritage reimagined",
+    title: "Traditional Regal Looks",
+    subtitle: "Heritage, elevated. Regal traditional pieces that celebrate African Identity through rich craftmanship, timeless silhouettes, and modern sophistication.",
+    cta: "Shop Natives",
+    href: { to: "/shop", search: { category: "natives" } },
+  },
+    {
+    type: "image",
+    src: "/gallery-compressed/Hero-assets/special-moments1.jpg",
+    eyebrow: "Dress the Occasion",
+    title: "Suits for Special Moments",
+    subtitle: "For the moments that deserve more. Distinctive bespoke suits created for celebrations, milestones, red carpets, and every occassion worth showing up beautifully for.",
+    cta: "Shop the Special Moments Suits",
+    href: { to: "/shop", search: { category: "suits" } },
   },
   {
     type: "image",
@@ -63,6 +72,15 @@ const SLIDES_FALLBACK: Slide[] = [
     subtitle: "Hand-beaded silk wool — only nine pieces released worldwide.",
     cta: "Shop Limited",
     href: { to: "/shop" },
+  },
+    {
+    type: "image",
+    src: "/gallery-compressed/Hero-assets/ladies.jpg",
+    eyebrow: "Tailored Confidence",
+    title: "Ladies' Suits",
+    subtitle: "Power, tailored beautifully. Impeccably crafted suits designed for the woman who commands the room with confidence, elegance, and unmistakable presence.",
+   cta: "Shop Ladies' Suits",
+    href: { to: "/shop", search: { category: "ladies" } },
   },
   {
     type: "image",
@@ -76,6 +94,9 @@ const SLIDES_FALLBACK: Slide[] = [
 ];
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+if (!API_BASE) {
+  throw new Error("VITE_API_BASE_URL is not defined");
+}
 
 function HeroCarousel() {
   const [slides, setSlides] = useState<Slide[]>(SLIDES_FALLBACK);
@@ -256,7 +277,7 @@ const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
 const COLLECTION_CATS_FALLBACK = [
   { key: "suits",   label: "Suits",   tagline: "Sculpted Tailoring",    subtitle: "Bespoke suits & blazers",      image: CATEGORY_FALLBACK_IMAGES.suits },
   { key: "natives", label: "Natives", tagline: "Heritage Reimagined",   subtitle: "Agbada, kaftans & more",       image: CATEGORY_FALLBACK_IMAGES.natives },
-  { key: "casuals", label: "Casuals", tagline: "Quiet Luxury",          subtitle: "Everyday elevated essentials", image: CATEGORY_FALLBACK_IMAGES.casuals },
+  // { key: "casuals", label: "Casuals", tagline: "Quiet Luxury",          subtitle: "Everyday elevated essentials", image: CATEGORY_FALLBACK_IMAGES.casuals },
   { key: "ladies",  label: "Ladies",  tagline: "Couture for Her",       subtitle: "Aso-ebi & couture pieces",     image: CATEGORY_FALLBACK_IMAGES.ladies },
 ];
 
@@ -480,18 +501,17 @@ function SuitsSection() {
 const CAT_ROW_INITIAL = 4; // one row of 4
 const CAT_ROW_MORE   = 4; // one more row on load-more
 
-function CategoryRow({ title, eyebrow, category, subCategory, shopSearch }: {
+function CategoryRow({ title, eyebrow, category, shopSearch }: {
   title: string;
   eyebrow: string;
   category: string;
-  subCategory?: string;
   shopSearch: Record<string, string>;
 }) {
-  const { products } = useProducts({ category, subCategory });
+  const { products } = useProducts({ category });
   const [visibleCount, setVisibleCount] = useState(CAT_ROW_INITIAL);
 
   // Reset on mount (refresh / navigate back)
-  useEffect(() => { setVisibleCount(CAT_ROW_INITIAL); }, [category, subCategory]);
+  useEffect(() => { setVisibleCount(CAT_ROW_INITIAL); }, [category]);
 
   if (!products.length) return null;
 
@@ -650,11 +670,11 @@ function HomePage() {
       <CategoryGrid />
       <NewIn />
       <SuitsSection />
-      <CategoryRow title="African Attire" eyebrow="Heritage Reimagined" category="african-attire" shopSearch={{ category: "african-attire" }} />
-      {/* <CategoryRow title="Agbada"   eyebrow="Royal Drape"          category="agbada"   shopSearch={{ category: "agbada" }} /> */}
-      {/* <CategoryRow title="Kaftan"   eyebrow="Refined Comfort"      category="kaftan"   shopSearch={{ category: "kaftan" }} /> */}
-      <CategoryRow title="Ladies"   eyebrow="Couture for Her"      category="suits"    subCategory="ladies" shopSearch={{ category: "suits", subCategory: "ladies" }} />
-      <CategoryRow title="Casuals"  eyebrow="Quiet Luxury"         category="casuals"  shopSearch={{ category: "casuals" }} />
+      <CategoryRow title="Natives"  eyebrow="Heritage Reimagined"  category="natives"  shopSearch={{ category: "natives" }} />
+      <CategoryRow title="Agbada"   eyebrow="Royal Drape"          category="agbada"   shopSearch={{ category: "agbada" }} />
+      <CategoryRow title="Kaftan"   eyebrow="Refined Comfort"      category="kaftan"   shopSearch={{ category: "kaftan" }} />
+      <CategoryRow title="Ladies"   eyebrow="Couture for Her"      category="ladies"   shopSearch={{ category: "ladies" }} />
+      {/* <CategoryRow title="Casuals"  eyebrow="Quiet Luxury"         category="casuals"  shopSearch={{ category: "casuals" }} /> */}
       <EditorialBanner />
       <PromoBanner />
       <Testimonials />

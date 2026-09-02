@@ -109,7 +109,6 @@ export function Footer () {
           <ul className="space-y-2.5 text-sm text-cream/70">
             <li><Link to="/shop" search={{ category: "suits" }} className="hover:text-gold">Suits</Link></li>
             <li><Link to="/shop" search={{ category: "natives" }} className="hover:text-gold">Natives</Link></li>
-            <li><Link to="/shop" search={{ category: "casuals" }} className="hover:text-gold">Casuals</Link></li>
             <li><Link to="/shop" search={{ category: "ladies" }} className="hover:text-gold">Ladies</Link></li>
             <li><Link to="/shop" search={{ category: "shirts" }} className="hover:text-gold">Shirts</Link></li>
           </ul>
@@ -138,8 +137,7 @@ export function Footer () {
         <div className="col-span-2 md:col-span-1">
           <h4 className="text-eyebrow text-gold mb-4">Atelier</h4>
           <ul className="space-y-3 text-sm text-cream/70">
-            <li className="flex gap-2 items-start"><MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" /> 2b Baale Street, Lafiaji Off Buena Estate Orchid Road,
-              Lekki, Lagos State, Nigeria</li>
+            <li className="flex gap-2 items-start"><MapPin className="h-4 w-4 text-gold shrink-0 mt-0.5" /> Sparks and Splendour Baale Street, Lafiaji Orchid road Lekki, Lagos State</li>
             <li className="flex gap-2 items-start"><Phone className="h-4 w-4 text-gold shrink-0 mt-0.5" />
               <a href={`tel:+${import.meta.env.VITE_WHATSAPP_NUMBER}`} className="hover:text-gold transition-colors">+234 905 357 2403</a>
             </li>

@@ -119,7 +119,7 @@ function ShopPage() {
   // Reset rows on category or sub change
   useEffect(() => { setVisibleRows(ROWS_PER_LOAD); }, [search.category, search.sub]);
 
-  const allShopCats = backendCats.map((c) => ({ key: c.slug as Category, label: c.name, tagline: c.description || "", image: c.image_url || "" }));
+  const allShopCats = backendCats.filter((c) => c.slug !== "casuals").map((c) => ({ key: c.slug as Category, label: c.name, tagline: c.description || "", image: c.image_url || "" }));
 
   const cat = allShopCats.find((c) => c.key === search.category);
   const heroImage = allShopCats.find((c) => c.key === search.category)?.image || "/gallery-compressed/prom_suits/Prom_classic_Ric_Hassani_black_velvet_6.jpg";

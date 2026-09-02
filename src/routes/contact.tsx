@@ -152,7 +152,7 @@ function ContactPage() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
-            <Info I={MapPin} t="Office"    l={["2b Baale Street, Lafiaji Off Buena Estate", "Orchid Road, Lekki, Lagos, Nigeria"]} />
+            <Info I={MapPin} t="Office"    l={["Sparks and Splendour Baale Street, Lafiaji", "Orchid road Lekki, Lagos State"]} />
           <Info I={Clock}  t="Hours"     l={["Mon — Sat: 10am — 7pm", "Sundays by appointment"]} />
             <Info I={Phone}  t="Telephone" l={[{ text: "+234 905 357 2403", href: "tel:+2349053572403" }]} />
             <Info I={Mail}   t="Email"     l={[{ text: "sparksandsplendour@gmail.com", href: "mailto:sparksandsplendour@gmail.com" }]} />
