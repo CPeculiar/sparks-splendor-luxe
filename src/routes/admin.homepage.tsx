@@ -434,7 +434,8 @@ function SlideModal({ slide, onClose, onSave }: { slide: HeroSlide; onClose: () 
             <textarea value={s.subtitle} onChange={(e) => setS((x) => ({ ...x, subtitle: e.target.value }))} rows={2} className="inp" />
           </Field>
           <Field label="CTA Button Text">
-            <input value={s.cta} onChange={(e) => setS((x) => ({ ...x, cta: e.target.value }))} className="inp" placeholder="Discover the Collection" />
+            <input value={s.cta} onChange={(e) => setS((x) => ({ ...x, cta: e.target.value }))} className="inp" placeholder="
+            Explore Categories" />
           </Field>
           <Field label="Link to Category (e.g. suits, natives, ladies)">
             <input value={s.href_category || ""} onChange={(e) => setS((x) => ({ ...x, href_category: e.target.value }))} className="inp" placeholder="suits" />

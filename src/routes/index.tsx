@@ -64,15 +64,15 @@ const SLIDES_FALLBACK: Slide[] = [
     cta: "Shop the Special Moments Suits",
     href: { to: "/shop", search: { category: "suits" } },
   },
-  {
-    type: "image",
-    src: "/gallery-compressed/Hero-assets/heroImg-04.jpg",
-    eyebrow: "Limited Edition",
-    title: "The Rose Jewel",
-    subtitle: "Hand-beaded silk wool — only nine pieces released worldwide.",
-    cta: "Shop Limited",
-    href: { to: "/shop" },
-  },
+  // {
+  //   type: "image",
+  //   src: "/gallery-compressed/Hero-assets/heroImg-04.jpg",
+  //   eyebrow: "Limited Edition",
+  //   title: "The Rose Jewel",
+  //   subtitle: "Hand-beaded silk wool — only nine pieces released worldwide.",
+  //   cta: "Shop Limited",
+  //   href: { to: "/shop" },
+  // },
     {
     type: "image",
     src: "/gallery-compressed/Hero-assets/ladies.jpg",
@@ -82,15 +82,15 @@ const SLIDES_FALLBACK: Slide[] = [
    cta: "Shop Ladies' Suits",
     href: { to: "/shop", search: { category: "ladies" } },
   },
-  {
-    type: "image",
-    src: "/gallery-compressed/Hero-assets/heroImg-05.jpg",
-    eyebrow: "Bespoke Craft",
-    title: "Made for Monarchs",
-    subtitle: "Every thread placed with intention. Every silhouette sculpted for you.",
-    cta: "Explore All",
-    href: { to: "/shop" },
-  },
+  // {
+  //   type: "image",
+  //   src: "/gallery-compressed/Hero-assets/heroImg-05.jpg",
+  //   eyebrow: "Bespoke Craft",
+  //   title: "Made for Monarchs",
+  //   subtitle: "Every thread placed with intention. Every silhouette sculpted for you.",
+  //   cta: "Explore All",
+  //   href: { to: "/shop" },
+  // },
 ];
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
@@ -285,7 +285,7 @@ function CategoryGrid() {
   const { categories } = useCategories();
   const cards = categories.length
     ? categories
-        .filter((c) => Boolean(c.slug))
+        .filter((c) => Boolean(c.slug) && c.slug !== "casuals")
         .slice(0, 4)
         .map((c) => {
           const fallback = COLLECTION_CATS_FALLBACK.find((f) => f.key === c.slug);
