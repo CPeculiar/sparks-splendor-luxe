@@ -152,7 +152,7 @@ function validate(form: HTMLFormElement, countryCode: string): FormErrors {
   const firstName = get("first_name");
   const lastName  = get("last_name");
   const email     = get("reply_to");
-  const phone     = get("phone");
+  const phone     = get("phone_number");
   const message   = get("message");
 
   if (!firstName) errs.first_name = "First name is required.";
@@ -243,7 +243,7 @@ function ContactPage() {
             <div className={`flex border ${fieldErrors.country_code || fieldErrors.phone ? "border-destructive" : "border-border"} focus-within:border-gold`}>
               <CountryCodePicker value={countryCode} onChange={setCountryCode} />
               <input
-                name="phone"
+                name="phone_number"
                 type="tel"
                 placeholder="Enter phone number"
                 value={phoneNumber}
@@ -255,7 +255,7 @@ function ContactPage() {
             {fieldErrors.phone && <p className="text-xs text-destructive mt-1">{fieldErrors.phone}</p>}
           </div>
 
-          <input type="hidden" name="phone_full" value={`${countryCode} ${phoneNumber}`.trim()} />
+          <input type="hidden" name="phone" value={`${countryCode} ${phoneNumber}`.trim()} />
           {/* Hidden fields so EmailJS knows where to send */}
           <input type="hidden" name="to_email" value="sparksandsplendour@gmail.com" />
           <input type="hidden" name="cc_email" value="Ifeanyichukwuelekwachi@gmail.com" />
