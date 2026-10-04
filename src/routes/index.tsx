@@ -696,8 +696,8 @@ function HomePage() {
     <>
       <HeroCarousel />
       <MarqueeStrip />
-      <CategoryGrid />
       <NewIn />
+      <CategoryGrid />
       <SuitsSection />
       <CategoryRow title="Natives"  eyebrow="Heritage Reimagined"  category="natives"  shopSearch={{ category: "natives" }} />
       <CategoryRow title="Agbada"   eyebrow="Royal Drape"          category="agbada"   shopSearch={{ category: "agbada" }} />
