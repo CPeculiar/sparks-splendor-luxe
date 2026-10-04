@@ -33,7 +33,7 @@ function ShopPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [maxPrice, setMaxPrice] = useState<number>(800000);
+  // const [maxPrice, setMaxPrice] = useState<number>(800000);
   const [visibleRows, setVisibleRows] = useState(ROWS_PER_LOAD);
   const [currentSubs, setCurrentSubs] = useState<{ key: string; label: string }[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
@@ -133,14 +133,14 @@ function ShopPage() {
       list = list.filter((p) => p.sub_category === activeSub);
     }
     if (search.size) list = list.filter((p) => p.sizes.includes(search.size!));
-    list = list.filter((p) => p.price <= maxPrice);
+    // list = list.filter((p) => p.price <= maxPrice);
     switch (search.sort) {
       case "price-asc": list.sort((a, b) => a.price - b.price); break;
       case "price-desc": list.sort((a, b) => b.price - a.price); break;
       case "newest": list.sort((a, b) => (b.badge === "New" ? 1 : 0) - (a.badge === "New" ? 1 : 0)); break;
     }
     return list;
-  }, [products, search.sort, search.size, maxPrice, currentSubs.length, activeSub]);
+  }, [products, search.sort, search.size, currentSubs.length, activeSub]);
 
   const maxVisible = visibleRows * COLS;
   const hasSubCategories = currentSubs.length > 0;
@@ -229,7 +229,7 @@ function ShopPage() {
         {!loading && filtered.length === 0 && (
           <div className="text-center py-24">
             <p className="font-display text-2xl">No pieces match these filters.</p>
-            <button onClick={() => { navigate({ search: { category: "all", sort: "featured" } }); setMaxPrice(800000); }} className="mt-4 text-gold-deep underline text-sm">Clear filters</button>
+            <button onClick={() => { navigate({ search: { category: "all", sort: "featured" } }); }} className="mt-4 text-gold-deep underline text-sm">Clear filters</button>
           </div>
         )}
 
@@ -272,26 +272,10 @@ function ShopPage() {
                   ))}
                 </div>
               </div>
-              <div>
-                <h4 className="text-eyebrow mb-4">Max Price</h4>
-                <input
-                  type="range"
-                  min={50000}
-                  max={800000}
-                  step={10000}
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(Number(e.target.value))}
-                  className="w-full accent-[var(--gold)]"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-2 tabular-nums">
-                  <span>₦50,000</span>
-                  <span className="text-foreground font-medium">Up to ₦{maxPrice.toLocaleString()}</span>
-                </div>
-              </div>
             </div>
             <footer className="mt-auto p-6 border-t border-border flex gap-3">
               <button
-                onClick={() => { navigate({ search: { category: "all", sort: "featured" } }); setMaxPrice(800000); }}
+                onClick={() => { navigate({ search: { category: "all", sort: "featured" } }); }}
                 className="flex-1 border border-border py-3 text-xs tracking-[0.25em] uppercase hover:border-gold"
               >Reset</button>
               <button onClick={() => setFiltersOpen(false)} className="flex-1 bg-onyx text-cream py-3 text-xs tracking-[0.25em] uppercase hover:bg-gold hover:text-onyx transition-colors">Apply</button>

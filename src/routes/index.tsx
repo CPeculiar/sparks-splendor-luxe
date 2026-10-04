@@ -349,11 +349,10 @@ const COLS = 4; // products per row on lg
 const NEW_IN_ROW = COLS; // one row = 4 items
 
 function NewIn() {
-  const { products } = useProducts();
+  const { products, loading } = useProducts();
   const list = products;
   const [visibleCount, setVisibleCount] = useState(NEW_IN_ROW);
 
-  // Reset to one row on mount (handles refresh / navigation back)
   useEffect(() => { setVisibleCount(NEW_IN_ROW); }, []);
 
   const visible = list.slice(0, visibleCount);
@@ -372,18 +371,26 @@ function NewIn() {
             Shop New In
           </Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
-          {visible.map((p) => <ProductCard key={p.id} product={p} />)}
-        </div>
-        {hasMore && (
-          <div className="mt-12 text-center">
-            <button
-              onClick={() => setVisibleCount((count) => count + NEW_IN_ROW)}
-              className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
-            >
-              Load More
-            </button>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="aspect-[4/5] bg-muted animate-pulse" />)}
           </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+              {visible.map((p) => <ProductCard key={p.id} product={p} />)}
+            </div>
+            {hasMore && (
+              <div className="mt-12 text-center">
+                <button
+                  onClick={() => setVisibleCount((count) => count + NEW_IN_ROW)}
+                  className="inline-flex items-center gap-3 border border-onyx text-onyx px-10 py-4 text-xs tracking-[0.3em] uppercase font-semibold hover:bg-onyx hover:text-cream transition-colors"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>
@@ -399,7 +406,7 @@ const SUITS_PER_ROW = 4;
 const SUITS_INITIAL_ROWS = 3;
 
 function SuitsSection() {
-  const { products } = useProducts({ category: "suits" });
+  const { products, loading } = useProducts({ category: "suits" });
   const { categories } = useCategories();
   const [tabs, setTabs] = useState<{ key: string; label: string }[]>(SUIT_TABS_FALLBACK);
   const [activeTab, setActiveTab] = useState("all");
@@ -478,9 +485,15 @@ function SuitsSection() {
       </div>
 
       {/* grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
-        {visible.map((p) => <ProductCard key={p.id} product={p} />)}
-      </div>
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+          {Array.from({ length: 8 }).map((_, i) => <div key={i} className="aspect-[4/5] bg-muted animate-pulse" />)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+          {visible.map((p) => <ProductCard key={p.id} product={p} />)}
+        </div>
+      )}
 
       {/* load more */}
       {hasMore && (
@@ -507,11 +520,27 @@ function CategoryRow({ title, eyebrow, category, shopSearch }: {
   category: string;
   shopSearch: Record<string, string>;
 }) {
-  const { products } = useProducts({ category });
+  const { products, loading } = useProducts({ category });
   const [visibleCount, setVisibleCount] = useState(CAT_ROW_INITIAL);
 
   // Reset on mount (refresh / navigate back)
   useEffect(() => { setVisibleCount(CAT_ROW_INITIAL); }, [category]);
+
+  // Don't render until we have real backend data
+  if (loading) return (
+    <section className="container-luxe py-16 md:py-20 border-t border-border/40">
+      <div className="flex items-end justify-between mb-10 gap-6 flex-wrap">
+        <div>
+          <p className="text-eyebrow">{eyebrow}</p>
+          <h2 className="font-display text-3xl md:text-4xl mt-2">{title}</h2>
+          <span className="gold-divider mt-4" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-6 md:gap-y-14">
+        {Array.from({ length: 4 }).map((_, i) => <div key={i} className="aspect-[4/5] bg-muted animate-pulse" />)}
+      </div>
+    </section>
+  );
 
   if (!products.length) return null;
 

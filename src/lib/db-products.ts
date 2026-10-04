@@ -115,7 +115,7 @@ export function useCategories() {
 }
 
 export function useProducts(filters?: { category?: string; subCategory?: string; search?: string }) {
-  const [data, setData] = useState<Product[]>(staticProducts);
+  const [data, setData] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
