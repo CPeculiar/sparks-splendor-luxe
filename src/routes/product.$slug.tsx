@@ -398,6 +398,8 @@ function ProductPage() {
                 color: currentColor,
                 quantity: qty,
                 ...(isComponentProduct ? {
+                  // overridePrice must be in the active display currency so the cart
+                  // subtotal and order unit_price are always correct.
                   overridePrice: product.display_currency === "USD" ? componentTotalUSD : componentTotalNGN,
                   selectedComponents,
                 } : {}),

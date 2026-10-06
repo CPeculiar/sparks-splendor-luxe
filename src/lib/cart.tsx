@@ -3,6 +3,7 @@ import {
   useMemo, useRef, useState, type ReactNode
 } from "react";
 import type { Product, ProductComponent } from "./db-products";
+import { useCurrency } from "./currency";
 
 export interface CartItem {
   product: Product;
@@ -75,9 +76,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const clear = useCallback(() => setItems([]), []);
 
+  const { code: currencyCode } = useCurrency();
+
   // ✅ Memoize derived values
   const count = useMemo(() => items.reduce((s, i) => s + i.quantity, 0), [items]);
-  const subtotal = useMemo(() => items.reduce((s, i) => s + i.quantity * (i.overridePrice ?? i.product.price), 0), [items]);
+  // Pick the correct price field based on the active currency so subtotal is always in the right currency
+  const subtotal = useMemo(() => items.reduce((s, i) => {
+    const unitPrice = i.overridePrice ?? (
+      currencyCode === "USD"
+        ? (i.product.price_usd ?? i.product.price)
+        : i.product.price
+    );
+    return s + i.quantity * unitPrice;
+  }, 0), [items, currencyCode]);
 
   // ✅ Memoize the entire context value so consumers don't re-render unless something actually changed
   const value = useMemo<CartCtx>(

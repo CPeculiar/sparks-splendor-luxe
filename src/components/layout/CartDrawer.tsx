@@ -6,7 +6,13 @@ import { useEffect } from "react";
 
 export function CartDrawer() {
   const { open, setOpen, items, update, remove, subtotal, count } = useCart();
-  const { format } = useCurrency();
+  const { format, code } = useCurrency();
+
+  function itemUnitPrice(it: ReturnType<typeof useCart>["items"][number]) {
+    return it.overridePrice ?? (
+      code === "USD" ? (it.product.price_usd ?? it.product.price) : it.product.price
+    );
+  }
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -97,7 +103,7 @@ export function CartDrawer() {
                         </button>
                       </div>
                       <span className="text-sm font-medium">
-                        {format(it.product.price * it.quantity)}
+                        {format(itemUnitPrice(it) * it.quantity)}
                       </span>
                     </div>
                   </div>

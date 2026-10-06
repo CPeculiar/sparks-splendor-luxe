@@ -336,14 +336,23 @@ function CartPage() {
 
   const createOrder = async () => {
     const token = getAuthToken();
-    const orderItems = items.map((item) => ({
-      product_id: item.product.id,
-      product_name: item.product.name,
-      quantity: item.quantity,
-      unit_price: item.product.price,
-      color: item.color ?? undefined,
-      size: item.size ?? undefined,
-    }));
+    const orderItems = items.map((item) => {
+      // Use the correct price for the active currency.
+      // overridePrice is already currency-correct (set at add-to-cart time for component products).
+      const unitPrice = item.overridePrice ?? (
+        code === "USD"
+          ? (item.product.price_usd ?? item.product.price)
+          : item.product.price
+      );
+      return {
+        product_id: item.product.id,
+        product_name: item.product.name,
+        quantity: item.quantity,
+        unit_price: unitPrice,
+        color: item.color ?? undefined,
+        size: item.size ?? undefined,
+      };
+    });
     const payload = {
       email,
       first_name: firstName,
@@ -785,7 +794,7 @@ function CartPage() {
                     <span className="px-3 text-sm tabular-nums">{item.quantity}</span>
                     <button onClick={() => update(item.product.id, item.size || "", item.color || "", item.quantity + 1)} className="px-2 py-1.5 hover:bg-muted" aria-label="Increase"><Plus className="h-3 w-3" /></button>
                   </div>
-                  <span className="text-sm font-medium tabular-nums">{format(item.product.price * item.quantity)}</span>
+                  <span className="text-sm font-medium tabular-nums">{format((item.overridePrice ?? (code === "USD" ? (item.product.price_usd ?? item.product.price) : item.product.price)) * item.quantity)}</span>
                 </div>
               </div>
             </div>
